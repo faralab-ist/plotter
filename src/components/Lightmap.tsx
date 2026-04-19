@@ -1,48 +1,44 @@
 import React, { useState, useMemo } from 'react';
-import '../styles/Heatmap.css';
+import '../styles/Lightmap.css';
 
-interface HeatmapCell {
-  id: number;
+interface LightmapCell {
   value: number;
   row: number;
   col: number;
 }
 
-const GRID_SIZE = 2;
-const MIN_VALUE = 1;
-const MAX_VALUE = 500;
+interface LightmapProps {
+  data: Array<Array<[[number, number], number]>>
+  width: number
+  height: number
+}
 
-export const Heatmap: React.FC = () => {
+const MAX_VALUE = 500; // Valor máximo padrão para normalização
+const MIN_VALUE = 0;   // Valor mínimo para normalização
+
+export const Lightmap: React.FC<LightmapProps> = ({data, width, height}) => {
   const [maxMetricValue, setMaxMetricValue] = useState<number>(MAX_VALUE);
-  const [heatmapData, setHeatmapData] = useState<HeatmapCell[]>(() =>
-    generateHeatmapData()
+  const [lightmapData, setLightmapData] = useState<LightmapCell[]>(() =>
+    generateLightmapData()
   );
 
-  function generateHeatmapData(): HeatmapCell[] {
-    const data: HeatmapCell[] = [];
-    let id = 0;
-
-    for (let row = 0; row < GRID_SIZE; row++) {
-      for (let col = 0; col < GRID_SIZE; col++) {
-        const value = Math.random() * (MAX_VALUE - MIN_VALUE) + MIN_VALUE;
-        data.push({
-          id: id++,
-          value,
-          row,
-          col,
-        });
-      }
+  function generateLightmapData(): LightmapCell[] {
+    const cells: LightmapCell[] = [];
+    for (let row = 0; row < data.length; row++) {
+        for (let col = 0; col < data[row].length; col++) {
+            const value = data[row][col][1];
+            cells.push({ value, row, col });
+        }
     }
-
-    return data;
+    return cells;
   }
 
   const normalizedData = useMemo(() => {
-    return heatmapData.map(cell => ({
+    return lightmapData.map(cell => ({
       ...cell,
       normalized: (cell.value - MIN_VALUE) / (maxMetricValue - MIN_VALUE),
     }));
-  }, [heatmapData, maxMetricValue]);
+  }, [lightmapData, maxMetricValue]);
 
   const getColorForValue = (normalizedValue: number): string => {
     // Limitar o valor normalizado entre 0 e 1
@@ -84,7 +80,7 @@ export const Heatmap: React.FC = () => {
   };
 
   const handleRegeneratData = () => {
-    setHeatmapData(generateHeatmapData());
+    setLightmapData(generateLightmapData());
   };
 
   const handleMaxMetricChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -95,8 +91,8 @@ export const Heatmap: React.FC = () => {
   };
 
   return (
-    <div className="heatmap-container">
-      <h1>Visualizador de Heatmap</h1>
+    <div className="lightmap-container">
+      <h1>Visualizador de Lightmap</h1>
 
       <div className="controls">
         <div className="control-group">
@@ -116,12 +112,12 @@ export const Heatmap: React.FC = () => {
       </div>
 
       <div className="content">
-        <div className="heatmap-wrapper">
-          <div className="heatmap-grid">
+        <div className="lightmap-wrapper">
+          <div className="lightmap-grid">
             {normalizedData.map(cell => (
               <div
-                key={cell.id}
-                className="heatmap-cell"
+                //key={cell.id}
+                className="lightmap-cell"
                 style={{ backgroundColor: getColorForValue(cell.normalized) }}
                 title={`X, Y, Z\nValor: ${cell.value.toFixed(2)}N`}
               />
@@ -149,23 +145,23 @@ export const Heatmap: React.FC = () => {
           
           <div className="legend-stats">
             <h4>Estatísticas</h4>
-            <p>Total de Células: {heatmapData.length}</p>
-            <p>Tamanho da Grade: {GRID_SIZE}x{GRID_SIZE}</p>
+            <p>Total de Células: {lightmapData.length}</p>
+            <p>Tamanho da Grade: {height}x{width}</p>
             <p>
               Valor Médio:{' '}
               {(
-                heatmapData.reduce((sum, cell) => sum + cell.value, 0) /
-                heatmapData.length
+                lightmapData.reduce((sum, cell) => sum + cell.value, 0) /
+                lightmapData.length
               ).toFixed(2)}
               N
             </p>
             <p>
               Valor Mínimo:{' '}
-              {Math.min(...heatmapData.map(c => c.value)).toFixed(2)}N
+              {Math.min(...lightmapData.map(c => c.value)).toFixed(2)}N
             </p>
             <p>
               Valor Máximo:{' '}
-              {Math.max(...heatmapData.map(c => c.value)).toFixed(2)}N
+              {Math.max(...lightmapData.map(c => c.value)).toFixed(2)}N
             </p>
           </div>
         </div>
