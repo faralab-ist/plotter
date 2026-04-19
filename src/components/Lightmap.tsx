@@ -19,6 +19,8 @@ const MIN_VALUE = 0;   // Valor mínimo para normalização
 
 export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
   const [maxMetricValue, setMaxMetricValue] = useState<number>(MAX_VALUE);
+  const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number; value: number } | null>(null);
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const lightmapData = useMemo((): LightmapCell[] => {
     const cells: LightmapCell[] = [];
@@ -141,10 +143,38 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
                   ...cellStyle,
                   backgroundColor: getColorForValue(cell.normalized),
                 }}
-                title={`(${cell.x}, ${cell.y})\nValue: ${cell.value.toFixed(2)}N`}
+                onMouseEnter={(e) => {
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  setTooltipPos({ x: rect.left, y: rect.top });
+                  setHoveredCell({ x: cell.x, y: cell.y, value: cell.value });
+                }}
+                onMouseMove={(e) => {
+                  setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10 });
+                }}
+                onMouseLeave={() => setHoveredCell(null)}
               />
             ))}
           </div>
+          {hoveredCell && (
+            <div
+              className="lightmap-tooltip"
+              style={{
+                position: 'fixed',
+                left: tooltipPos.x,
+                top: tooltipPos.y,
+                backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                color: 'white',
+                padding: '8px 12px',
+                borderRadius: '4px',
+                fontSize: '12px',
+                whiteSpace: 'nowrap',
+                pointerEvents: 'none',
+                zIndex: 1000,
+              }}
+            >
+              ({hoveredCell.x}, {hoveredCell.y}) - {hoveredCell.value.toFixed(2)}N
+            </div>
+          )}
         </div>
         <div className="legend">
           <h3>Legenda</h3>
