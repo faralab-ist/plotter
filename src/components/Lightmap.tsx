@@ -59,11 +59,8 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
 
   const gridStyle = useMemo(
     () => ({
-      display: 'grid',
       gridTemplateColumns: `repeat(${columnCount}, ${cellSize}px)`,
       gap: `${GAP_SIZE}px`,
-      width: `${GRID_SIZE}px`,
-      height: `${GRID_SIZE}px`,
       justifyContent: 'center' as const,
       alignContent: 'center' as const,
     }),
@@ -78,26 +75,6 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
     [cellSize]
   );
 
-  const wrapperStyle = useMemo(
-    () => ({
-      width: `${GRID_SIZE}px`,
-      height: `${GRID_SIZE}px`,
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-    }),
-    []
-  );
-
-  const infoStyle = useMemo(
-    () => ({
-      marginTop: '12px',
-      fontSize: '0.9rem',
-      color: '#555',
-      textAlign: 'center' as const,
-    }),
-    []
-  );
 
   const effectiveMaxValue = useMemo(() => {
     if (lightmapData.length === 0) return MAX_VALUE;
@@ -108,12 +85,6 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
     setMaxMetricValue(effectiveMaxValue);
   }, [effectiveMaxValue]);
 
-  console.log('lightmapData', lightmapData);
-  console.log('normalizedData', normalizedData);
-
-  if (lightmapData.length === 0) {
-    return <div className="lightmap-container">Sem dados para mostrar.</div>;
-  }
 
   const getColorForValue = (normalizedValue: number): string => {
     // Limitar o valor normalizado entre 0 e 1
@@ -157,7 +128,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
   return (
     <div className="lightmap-container">
       <div className="content">
-        <div className="lightmap-wrapper" style={wrapperStyle}>
+        <div className="lightmap-wrapper">
           <div className="lightmap-grid" style={gridStyle}>
             {normalizedData.map(cell => (
               <div
