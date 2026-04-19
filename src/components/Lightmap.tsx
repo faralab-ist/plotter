@@ -45,7 +45,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
   const rowCount = data.length;
   const columnCount = data[0]?.length ?? 0;
   const GRID_SIZE = 400;
-  const GAP_SIZE = 4;
+  const GAP_SIZE = 1;
 
   const cellSize = useMemo(() => {
     if (rowCount === 0 || columnCount === 0) return 0;
@@ -95,32 +95,35 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
     let hue, saturation, lightness;
     
     if (clampedValue < 0.25) {
+      
       // hsl(286, 88%, 25%) → hsl(288, 99%, 33%)
       const t = clampedValue / 0.25;
       hue = 286 + (288 - 286) * t;
       saturation = 88 + (99 - 88) * t;
       lightness = 25 + (33 - 25) * t;
     } else if (clampedValue < 0.5) {
-      // hsl(288, 99%, 33%) → hsl(30, 97%, 47%)
+      // hsl(288, 99%, 33%) → hsl(30, 100%, 41%)
       // Usar 390 para evitar interpolação através de verde/cyan
       const t = (clampedValue - 0.25) / 0.25;
-      hue = 288 + (390 - 288) * t;
-      if (hue > 360) hue -= 360;
-      saturation = 99 + (97 - 99) * t;
-      lightness = 33 + (47 - 33) * t;
+      hue = 288 + (390 - 288) * t; // 390 é 30 + 360
+      saturation = 99 + (100 - 99) * t;
+      lightness = 33 + (41 - 33) * t;
     } else if (clampedValue < 0.75) {
-      // hsl(30, 97%, 47%) → hsl(40, 95%, 50%)
+      // hsl(30, 100%, 41%) → hsl(32, 100%, 50%)
       const t = (clampedValue - 0.5) / 0.25;
-      hue = 30 + (40 - 30) * t;
-      saturation = 97 + (95 - 97) * t;
-      lightness = 47 + (50 - 47) * t;
+      hue = 30 + (32 - 30) * t;
+      saturation = 100 + (100 - 100) * t;
+      lightness = 41 + (50 - 41) * t;
     } else {
-      // hsl(40, 95%, 50%) → hsl(60, 100%, 50%)
+      // hsl(32, 100%, 50%) → hsl(36, 100%, 54%)
       const t = (clampedValue - 0.75) / 0.25;
-      hue = 40 + (60 - 40) * t;
-      saturation = 95 + (100 - 95) * t;
-      lightness = 50;
+      hue = 32 + (36 - 32) * t;
+      saturation = 100 + (100 - 100) * t;
+      lightness = 50 + (54 - 50) * t;
     }
+
+    // Normalizar hue para 0-360
+    hue = hue % 360;
 
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
@@ -151,8 +154,8 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
               style={{ backgroundColor: getColorForValue(0) }}
             />
             <div className="legend-labels">
-              <span>{MIN_VALUE.toFixed(0)}N</span>
               <span>{maxMetricValue.toFixed(0)}N</span>
+              <span>{MIN_VALUE.toFixed(0)}N</span>
             </div>
           </div>
         </div>

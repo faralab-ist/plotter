@@ -5,9 +5,9 @@ import { Lightmap } from './components/Lightmap.tsx';
 
 const matrix: Array<Array<[[number, number], number]>> = [
   [
-    [[1, 1], 1],
-    [[1, 2], 10],
-    [[1, 3], 10],
+    [[1, 1], 45],
+    [[1, 2], 35],
+    [[1, 3], 40],
   ],
   [
     [[2, 1], 100],
