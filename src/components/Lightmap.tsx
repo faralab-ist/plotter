@@ -14,21 +14,33 @@ interface LightmapProps {
   height: number
 }
 
-const MAX_VALUE = 500; // Valor máximo padrão para normalização
-const MIN_VALUE = 0;   // Valor mínimo para normalização
+//const MAX_VALUE = 0; // Valor máximo padrão para normalização
+//const MIN_VALUE = 0;   // Valor mínimo para normalização
+let maxValue: number;
+let minValue: number;
+
 
 export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
-  const [maxMetricValue, setMaxMetricValue] = useState<number>(MAX_VALUE);
+  const [maxMetricValue, setMaxMetricValue] = useState<number>(maxValue);
+  const [minMetricValue, setMinMetricValue] = useState<number>(minValue);
   const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number; value: number } | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
+  maxValue = data[0][0][1];
+  minValue = data[0][0][1];
   const lightmapData = useMemo((): LightmapCell[] => {
     const cells: LightmapCell[] = [];
-
+    
     for (let row = 0; row < data.length; row++) {
       for (let col = 0; col < data[row].length; col++) {
         const [[x, y], value] = data[row][col];
         cells.push({ value, x, y });
+        if (maxValue <= value){
+          maxValue = value
+        }
+        if (minValue >= value){
+          minValue = value
+        }
       }
     }
 
@@ -36,13 +48,13 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
   }, [data]);
 
   const normalizedData = useMemo(() => {
-    const range = maxMetricValue - MIN_VALUE || 1;
+    const range = maxMetricValue - minMetricValue || 1;
 
     return lightmapData.map(cell => ({
       ...cell,
-      normalized: (cell.value - MIN_VALUE) / range,
+      normalized: (cell.value - minMetricValue) / range,
     }));
-  }, [lightmapData, maxMetricValue]);
+  }, [lightmapData, maxMetricValue, minMetricValue]);
 
   const rowCount = data.length;
   const columnCount = data[0]?.length ?? 0;
@@ -79,13 +91,19 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
 
 
   const effectiveMaxValue = useMemo(() => {
-    if (lightmapData.length === 0) return MAX_VALUE;
+    if (lightmapData.length === 0) return maxValue;
     return Math.max(...lightmapData.map(cell => cell.value));
+  }, [lightmapData]);
+
+  const effectiveMinValue = useMemo(() => {
+    if (lightmapData.length === 0) return minValue;
+    return Math.min(...lightmapData.map(cell => cell.value));
   }, [lightmapData]);
 
   useEffect(() => {
     setMaxMetricValue(effectiveMaxValue);
-  }, [effectiveMaxValue]);
+    setMinMetricValue(effectiveMinValue);
+  }, [effectiveMaxValue, effectiveMinValue]);
 
 
   const getColorForValue = (normalizedValue: number): string => {
@@ -185,7 +203,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
             />
             <div className="legend-labels">
               <span>{maxMetricValue.toFixed(0)}N</span>
-              <span>{MIN_VALUE.toFixed(0)}N</span>
+              <span>{minMetricValue.toFixed(0)}N</span>
             </div>
           </div>
         </div>
