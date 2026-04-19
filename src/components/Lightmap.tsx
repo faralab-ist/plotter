@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import '../styles/Lightmap.css';
 
 interface LightmapCell {
   value: number;
-  row: number;
-  col: number;
+  x: number;
+  y: number;
+  //z: number;
 }
 
 interface LightmapProps {
@@ -16,29 +17,103 @@ interface LightmapProps {
 const MAX_VALUE = 500; // Valor máximo padrão para normalização
 const MIN_VALUE = 0;   // Valor mínimo para normalização
 
-export const Lightmap: React.FC<LightmapProps> = ({data, width, height}) => {
+export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
   const [maxMetricValue, setMaxMetricValue] = useState<number>(MAX_VALUE);
-  const [lightmapData, setLightmapData] = useState<LightmapCell[]>(() =>
-    generateLightmapData()
-  );
 
-  function generateLightmapData(): LightmapCell[] {
+  const lightmapData = useMemo((): LightmapCell[] => {
     const cells: LightmapCell[] = [];
+
     for (let row = 0; row < data.length; row++) {
-        for (let col = 0; col < data[row].length; col++) {
-            const value = data[row][col][1];
-            cells.push({ value, row, col });
-        }
+      for (let col = 0; col < data[row].length; col++) {
+        const [[x, y], value] = data[row][col];
+        cells.push({ value, x, y });
+      }
     }
+
     return cells;
-  }
+  }, [data]);
 
   const normalizedData = useMemo(() => {
+    const range = maxMetricValue - MIN_VALUE || 1;
+
     return lightmapData.map(cell => ({
       ...cell,
-      normalized: (cell.value - MIN_VALUE) / (maxMetricValue - MIN_VALUE),
+      normalized: (cell.value - MIN_VALUE) / range,
     }));
   }, [lightmapData, maxMetricValue]);
+
+  const rowCount = data.length;
+  const columnCount = data[0]?.length ?? 0;
+  const GRID_SIZE = 400;
+  const GAP_SIZE = 4;
+
+  const cellSize = useMemo(() => {
+    if (rowCount === 0 || columnCount === 0) return 0;
+
+    const availableWidth = GRID_SIZE - Math.max(0, columnCount - 1) * GAP_SIZE;
+    const availableHeight = GRID_SIZE - Math.max(0, rowCount - 1) * GAP_SIZE;
+
+    return Math.max(1, Math.floor(Math.min(availableWidth / columnCount, availableHeight / rowCount)));
+  }, [rowCount, columnCount]);
+
+
+  const gridStyle = useMemo(
+    () => ({
+      display: 'grid',
+      gridTemplateColumns: `repeat(${columnCount}, ${cellSize}px)`,
+      gap: `${GAP_SIZE}px`,
+      width: `${GRID_SIZE}px`,
+      height: `${GRID_SIZE}px`,
+      justifyContent: 'center' as const,
+      alignContent: 'center' as const,
+    }),
+    [columnCount, cellSize]
+  );
+
+  const cellStyle = useMemo(
+    () => ({
+      width: `${cellSize}px`,
+      height: `${cellSize}px`,
+    }),
+    [cellSize]
+  );
+
+  const wrapperStyle = useMemo(
+    () => ({
+      width: `${GRID_SIZE}px`,
+      height: `${GRID_SIZE}px`,
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+    }),
+    []
+  );
+
+  const infoStyle = useMemo(
+    () => ({
+      marginTop: '12px',
+      fontSize: '0.9rem',
+      color: '#555',
+      textAlign: 'center' as const,
+    }),
+    []
+  );
+
+  const effectiveMaxValue = useMemo(() => {
+    if (lightmapData.length === 0) return MAX_VALUE;
+    return Math.max(...lightmapData.map(cell => cell.value));
+  }, [lightmapData]);
+
+  useEffect(() => {
+    setMaxMetricValue(effectiveMaxValue);
+  }, [effectiveMaxValue]);
+
+  console.log('lightmapData', lightmapData);
+  console.log('normalizedData', normalizedData);
+
+  if (lightmapData.length === 0) {
+    return <div className="lightmap-container">Sem dados para mostrar.</div>;
+  }
 
   const getColorForValue = (normalizedValue: number): string => {
     // Limitar o valor normalizado entre 0 e 1
@@ -79,52 +154,24 @@ export const Lightmap: React.FC<LightmapProps> = ({data, width, height}) => {
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
-  const handleRegeneratData = () => {
-    setLightmapData(generateLightmapData());
-  };
-
-  const handleMaxMetricChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseFloat(e.target.value);
-    if (value >= MIN_VALUE) {
-      setMaxMetricValue(value);
-    }
-  };
-
   return (
     <div className="lightmap-container">
-      <h1>Visualizador de Lightmap</h1>
-
-      <div className="controls">
-        <div className="control-group">
-          <label htmlFor="max-metric">Valor Máximo da Métrica (N):</label>
-          <input
-            id="max-metric"
-            type="number"
-            min={MIN_VALUE}
-            value={maxMetricValue}
-            onChange={handleMaxMetricChange}
-            className="metric-input"
-          />
-        </div>
-        <button onClick={handleRegeneratData} className="btn-regenerate">
-          Regenerar Dados
-        </button>
-      </div>
-
       <div className="content">
-        <div className="lightmap-wrapper">
-          <div className="lightmap-grid">
+        <div className="lightmap-wrapper" style={wrapperStyle}>
+          <div className="lightmap-grid" style={gridStyle}>
             {normalizedData.map(cell => (
               <div
-                //key={cell.id}
+                key={`${cell.x}-${cell.y}`}
                 className="lightmap-cell"
-                style={{ backgroundColor: getColorForValue(cell.normalized) }}
-                title={`X, Y, Z\nValor: ${cell.value.toFixed(2)}N`}
+                style={{
+                  ...cellStyle,
+                  backgroundColor: getColorForValue(cell.normalized),
+                }}
+                title={`(${cell.x}, ${cell.y})\nValue: ${cell.value.toFixed(2)}N`}
               />
             ))}
           </div>
         </div>
-
         <div className="legend">
           <h3>Legenda</h3>
           <div className="legend-gradient">
@@ -136,33 +183,6 @@ export const Lightmap: React.FC<LightmapProps> = ({data, width, height}) => {
               <span>{MIN_VALUE.toFixed(0)}N</span>
               <span>{maxMetricValue.toFixed(0)}N</span>
             </div>
-          </div>
-          <div className="legend-description">
-            <p>Roxo: Valores baixos</p>
-            <p>Laranja: Valores médios</p>
-            <p>Amarelo: Valores altos</p>
-          </div>
-          
-          <div className="legend-stats">
-            <h4>Estatísticas</h4>
-            <p>Total de Células: {lightmapData.length}</p>
-            <p>Tamanho da Grade: {height}x{width}</p>
-            <p>
-              Valor Médio:{' '}
-              {(
-                lightmapData.reduce((sum, cell) => sum + cell.value, 0) /
-                lightmapData.length
-              ).toFixed(2)}
-              N
-            </p>
-            <p>
-              Valor Mínimo:{' '}
-              {Math.min(...lightmapData.map(c => c.value)).toFixed(2)}N
-            </p>
-            <p>
-              Valor Máximo:{' '}
-              {Math.max(...lightmapData.map(c => c.value)).toFixed(2)}N
-            </p>
           </div>
         </div>
       </div>
