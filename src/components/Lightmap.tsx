@@ -5,11 +5,11 @@ interface LightmapCell {
   value: number;
   x: number;
   y: number;
-  //z: number;
+  z: number;
 }
 
 interface LightmapProps {
-  data: Array<Array<[[number, number], number]>>
+  data: Array<Array<[[number, number, number], number]>>
   width: number
   height: number
 }
@@ -23,7 +23,7 @@ let minValue: number;
 export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
   const [maxMetricValue, setMaxMetricValue] = useState<number>(maxValue);
   const [minMetricValue, setMinMetricValue] = useState<number>(minValue);
-  const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number; value: number } | null>(null);
+  const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number; z:number; value: number } | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
   maxValue = data[0][0][1];
@@ -33,10 +33,10 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
     
     for (let row = 0; row < data.length; row++) {
       for (let col = 0; col < data[row].length; col++) {
-        const [[x, y], value] = data[row][col];
-        cells.push({ value, x, y });
+        const [[x, y, z], value] = data[row][col];
+        cells.push({ value, x, y, z });
         if (maxValue <= value){
-          maxValue = value
+          maxValue = value //mudar isto ig
         }
         if (minValue >= value){
           minValue = value
@@ -59,7 +59,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
   const rowCount = data.length;
   const columnCount = data[0]?.length ?? 0;
   const GRID_SIZE = 400;
-  const GAP_SIZE = 1;
+  const GAP_SIZE = 0;
 
   const cellSize = useMemo(() => {
     if (rowCount === 0 || columnCount === 0) return 0;
@@ -155,7 +155,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
           <div className="lightmap-grid" style={gridStyle}>
             {normalizedData.map(cell => (
               <div
-                key={`${cell.x}-${cell.y}`}
+                key={`${cell.x}-${cell.y}-${cell.z}`}
                 className="lightmap-cell"
                 style={{
                   ...cellStyle,
@@ -163,11 +163,11 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
                 }}
                 onMouseEnter={(e) => {
                   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setTooltipPos({ x: rect.left, y: rect.top });
-                  setHoveredCell({ x: cell.x, y: cell.y, value: cell.value });
+                  setTooltipPos({ x: rect.left, y: rect.top});
+                  setHoveredCell({ x: cell.x, y: cell.y, z:cell.z, value: cell.value });
                 }}
                 onMouseMove={(e) => {
-                  setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10 });
+                  setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10});
                 }}
                 onMouseLeave={() => setHoveredCell(null)}
               />
@@ -190,7 +190,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
                 zIndex: 1000,
               }}
             >
-              ({hoveredCell.x}, {hoveredCell.y}) - {hoveredCell.value.toFixed(2)}N
+              ({hoveredCell.x}, {hoveredCell.y}, {hoveredCell.z}) : {hoveredCell.value.toFixed(2)}N
             </div>
           )}
         </div>
