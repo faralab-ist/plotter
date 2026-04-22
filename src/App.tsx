@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Lightmap } from "./components/Lightmap";
 
-const GRID_SIZE = 10;
+const GRID_SIZE = 100;
 
 type StaticCell = {
   x: number;

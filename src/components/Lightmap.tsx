@@ -101,16 +101,10 @@ export function downsample(
 }
 
 export function getColorForValue(normalizedValue: number, baseHue: number): string {
-  // Normalise baseHue to [0, 360)
   const hue0 = ((baseHue % 360) + 360) % 360;
 
-  // Clamp normalised value to [0, 1]
   const t = Math.max(0, Math.min(1, normalizedValue));
 
-  // Control points
-  // t=0.0: hsl(hue0,          60%,  20%)
-  // t=0.5: hsl((hue0+30)%360, 90%,  40%)
-  // t=1.0: hsl((hue0+60)%360, 100%, 55%)
   const hue1 = (hue0 + 30) % 360;
   const hue2 = (hue0 + 60) % 360;
 
@@ -119,13 +113,11 @@ export function getColorForValue(normalizedValue: number, baseHue: number): stri
   let lightness: number;
 
   if (t <= 0.5) {
-    // Interpolate between point 0 and point 1
     const s = t / 0.5; // s in [0, 1]
     hue = hue0 + (hue1 - hue0) * s;
     saturation = 60 + (90 - 60) * s;
     lightness = 20 + (40 - 20) * s;
   } else {
-    // Interpolate between point 1 and point 2
     const s = (t - 0.5) / 0.5; // s in [0, 1]
     hue = hue1 + (hue2 - hue1) * s;
     saturation = 90 + (100 - 90) * s;
