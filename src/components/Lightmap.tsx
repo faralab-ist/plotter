@@ -1,5 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import '../styles/Lightmap.css';
+import React from 'react';
+import './Lightmap.css';
+
+export type LightmapPoint = [[number, number, number], number];
+export type LightmapMatrix = LightmapPoint[][];
+
+const LIGHTMAP_FIXED_MIN_VALUE = -100;
+const LIGHTMAP_FIXED_MAX_VALUE = 100;
 
 interface LightmapCell {
   value: number;
@@ -8,176 +14,156 @@ interface LightmapCell {
   z: number;
 }
 
-interface LightmapProps {
-  data: Array<Array<[[number, number, number], number]>>
-  width: number
-  height: number
+export interface LightmapProps {
+  data: LightmapMatrix;
+  width: number;
+  height: number;
 }
 
-//const MAX_VALUE = 0; // Valor máximo padrão para normalização
-//const MIN_VALUE = 0;   // Valor mínimo para normalização
-let maxValue: number;
-let minValue: number;
-
-
 export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
-  const [maxMetricValue, setMaxMetricValue] = useState<number>(maxValue);
-  const [minMetricValue, setMinMetricValue] = useState<number>(minValue);
-  const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number; z:number; value: number } | null>(null);
-  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
+  const [hoveredCell, setHoveredCell] = React.useState<{
+    x: number;
+    y: number;
+    z: number;
+    value: number;
+  } | null>(null);
+  const [tooltipPos, setTooltipPos] = React.useState({ x: 0, y: 0 });
 
-  maxValue = data[0][0][1];
-  minValue = data[0][0][1];
-  const lightmapData = useMemo((): LightmapCell[] => {
+  const lightmapData = React.useMemo((): LightmapCell[] => {
     const cells: LightmapCell[] = [];
-    
-    for (let row = 0; row < data.length; row++) {
-      for (let col = 0; col < data[row].length; col++) {
+
+    for (let row = 0; row < data.length; row += 1) {
+      for (let col = 0; col < data[row].length; col += 1) {
         const [[x, y, z], value] = data[row][col];
         cells.push({ value, x, y, z });
-        if (maxValue <= value){
-          maxValue = value //mudar isto ig
-        }
-        if (minValue >= value){
-          minValue = value
-        }
       }
     }
 
     return cells;
   }, [data]);
 
-  const normalizedData = useMemo(() => {
-    const range = maxMetricValue - minMetricValue || 1;
+  const effectiveMaxValue = LIGHTMAP_FIXED_MAX_VALUE;
+  const effectiveMinValue = LIGHTMAP_FIXED_MIN_VALUE;
 
-    return lightmapData.map(cell => ({
+  const normalizedData = React.useMemo(() => {
+    const range = effectiveMaxValue - effectiveMinValue || 1;
+
+    return lightmapData.map((cell) => ({
       ...cell,
-      normalized: (cell.value - minMetricValue) / range,
+      normalized: Math.max(
+        0,
+        Math.min(1, (cell.value - effectiveMinValue) / range),
+      ),
     }));
-  }, [lightmapData, maxMetricValue, minMetricValue]);
+  }, [effectiveMaxValue, effectiveMinValue, lightmapData]);
 
   const rowCount = data.length;
   const columnCount = data[0]?.length ?? 0;
-  const GRID_SIZE = 400;
-  const GAP_SIZE = 0;
+  const gridSize = 220;
+  const gapSize = 0;
 
-  const cellSize = useMemo(() => {
-    if (rowCount === 0 || columnCount === 0) return 0;
+  const cellSize = React.useMemo(() => {
+    if (rowCount === 0 || columnCount === 0) {
+      return 0;
+    }
 
-    const availableWidth = GRID_SIZE - Math.max(0, columnCount - 1) * GAP_SIZE;
-    const availableHeight = GRID_SIZE - Math.max(0, rowCount - 1) * GAP_SIZE;
+    const availableWidth = gridSize - Math.max(0, columnCount - 1) * gapSize;
+    const availableHeight = gridSize - Math.max(0, rowCount - 1) * gapSize;
 
-    return Math.max(1, Math.floor(Math.min(availableWidth / columnCount, availableHeight / rowCount)));
-  }, [rowCount, columnCount]);
+    return Math.max(
+      1,
+      Math.floor(Math.min(availableWidth / columnCount, availableHeight / rowCount)),
+    );
+  }, [columnCount, rowCount]);
 
-
-  const gridStyle = useMemo(
+  const gridStyle = React.useMemo(
     () => ({
       gridTemplateColumns: `repeat(${columnCount}, ${cellSize}px)`,
-      gap: `${GAP_SIZE}px`,
+      gap: `${gapSize}px`,
       justifyContent: 'center' as const,
       alignContent: 'center' as const,
     }),
-    [columnCount, cellSize]
+    [cellSize, columnCount],
   );
 
-  const cellStyle = useMemo(
+  const cellStyle = React.useMemo(
     () => ({
       width: `${cellSize}px`,
       height: `${cellSize}px`,
     }),
-    [cellSize]
+    [cellSize],
   );
 
-
-  const effectiveMaxValue = useMemo(() => {
-    if (lightmapData.length === 0) return maxValue;
-    return Math.max(...lightmapData.map(cell => cell.value));
-  }, [lightmapData]);
-
-  const effectiveMinValue = useMemo(() => {
-    if (lightmapData.length === 0) return minValue;
-    return Math.min(...lightmapData.map(cell => cell.value));
-  }, [lightmapData]);
-
-  useEffect(() => {
-    setMaxMetricValue(effectiveMaxValue);
-    setMinMetricValue(effectiveMinValue);
-  }, [effectiveMaxValue, effectiveMinValue]);
-
-
   const getColorForValue = (normalizedValue: number): string => {
-    // Limitar o valor normalizado entre 0 e 1
     const clampedValue = Math.max(0, Math.min(1, normalizedValue));
+    const red = { r: 239, g: 68, b: 68 };
+    const black = { r: 0, g: 0, b: 0 };
+    const blue = { r: 59, g: 130, b: 246 };
 
-    // Paleta de cores baseada na legenda: roxo escuro → roxo → laranja → amarelo
-    // Pontos de referência: 0% → 25% → 50% → 75% → 100%
-    let hue, saturation, lightness;
-    
-    if (clampedValue < 0.25) {
-      
-      // hsl(286, 88%, 25%) → hsl(288, 99%, 33%)
-      const t = clampedValue / 0.25;
-      hue = 286 + (288 - 286) * t;
-      saturation = 88 + (99 - 88) * t;
-      lightness = 25 + (33 - 25) * t;
-    } else if (clampedValue < 0.5) {
-      // hsl(288, 99%, 33%) → hsl(30, 100%, 41%)
-      // Usar 390 para evitar interpolação através de verde/cyan
-      const t = (clampedValue - 0.25) / 0.25;
-      hue = 288 + (390 - 288) * t; // 390 é 30 + 360
-      saturation = 99 + (100 - 99) * t;
-      lightness = 33 + (41 - 33) * t;
-    } else if (clampedValue < 0.75) {
-      // hsl(30, 100%, 41%) → hsl(32, 100%, 50%)
-      const t = (clampedValue - 0.5) / 0.25;
-      hue = 30 + (32 - 30) * t;
-      saturation = 100 + (100 - 100) * t;
-      lightness = 41 + (50 - 41) * t;
-    } else {
-      // hsl(32, 100%, 50%) → hsl(36, 100%, 54%)
-      const t = (clampedValue - 0.75) / 0.25;
-      hue = 32 + (36 - 32) * t;
-      saturation = 100 + (100 - 100) * t;
-      lightness = 50 + (54 - 50) * t;
+    const interpolateChannel = (start: number, end: number, t: number): number =>
+      Math.round(start + (end - start) * t);
+
+    const mixColors = (
+      start: { r: number; g: number; b: number },
+      end: { r: number; g: number; b: number },
+      t: number,
+    ): string =>
+      `rgb(${interpolateChannel(start.r, end.r, t)}, ${interpolateChannel(start.g, end.g, t)}, ${interpolateChannel(start.b, end.b, t)})`;
+
+    if (clampedValue <= 0.5) {
+      return mixColors(red, black, clampedValue / 0.5);
     }
 
-    // Normalizar hue para 0-360
-    hue = hue % 360;
-
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    return mixColors(black, blue, (clampedValue - 0.5) / 0.5);
   };
 
   return (
-    <div className="lightmap-container">
-      <div className="content">
-        <div className="lightmap-wrapper">
-          <div className="lightmap-grid" style={gridStyle}>
-            {normalizedData.map(cell => (
+    <div className="plotter-lightmap-container">
+      <div className="plotter-lightmap-content">
+        <div className="plotter-lightmap-wrapper">
+          <div ref={wrapperRef} className="plotter-lightmap-grid" style={gridStyle}>
+            {normalizedData.map((cell) => (
               <div
                 key={`${cell.x}-${cell.y}-${cell.z}`}
-                className="lightmap-cell"
+                className="plotter-lightmap-cell"
                 style={{
                   ...cellStyle,
                   backgroundColor: getColorForValue(cell.normalized),
                 }}
-                onMouseEnter={(e) => {
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  setTooltipPos({ x: rect.left, y: rect.top});
-                  setHoveredCell({ x: cell.x, y: cell.y, z:cell.z, value: cell.value });
+                onMouseEnter={(event) => {
+                  const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+                  if (wrapperRect) {
+                    setTooltipPos({
+                      x: event.clientX - wrapperRect.left + 10,
+                      y: event.clientY - wrapperRect.top + 10,
+                    });
+                  }
+                  setHoveredCell({
+                    x: cell.x,
+                    y: cell.y,
+                    z: cell.z,
+                    value: cell.value,
+                  });
                 }}
-                onMouseMove={(e) => {
-                  setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10});
+                onMouseMove={(event) => {
+                  const wrapperRect = wrapperRef.current?.getBoundingClientRect();
+                  if (wrapperRect) {
+                    setTooltipPos({
+                      x: event.clientX - wrapperRect.left + 10,
+                      y: event.clientY - wrapperRect.top + 10,
+                    });
+                  }
                 }}
                 onMouseLeave={() => setHoveredCell(null)}
               />
             ))}
           </div>
-          {hoveredCell && (
+
+          {hoveredCell ? (
             <div
-              className="lightmap-tooltip"
               style={{
-                position: 'fixed',
+                position: 'absolute',
                 left: tooltipPos.x,
                 top: tooltipPos.y,
                 backgroundColor: 'rgba(0, 0, 0, 0.9)',
@@ -190,20 +176,18 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
                 zIndex: 1000,
               }}
             >
-              ({hoveredCell.x}, {hoveredCell.y}, {hoveredCell.z}) : {hoveredCell.value.toFixed(2)}N
+              ({hoveredCell.x.toFixed(2)}, {hoveredCell.y.toFixed(2)}, {hoveredCell.z.toFixed(2)}) :{' '}
+              {hoveredCell.value.toFixed(2)}V
             </div>
-          )}
+          ) : null}
         </div>
-        <div className="legend">
-          <h3>Legenda</h3>
-          <div className="legend-gradient">
-            <div
-              className="legend-color"
-              style={{ backgroundColor: getColorForValue(0) }}
-            />
-            <div className="legend-labels">
-              <span>{maxMetricValue.toFixed(0)}N</span>
-              <span>{minMetricValue.toFixed(0)}N</span>
+
+        <div className="plotter-lightmap-legend">
+          <div className="plotter-lightmap-legend-gradient">
+            <div className="plotter-lightmap-legend-color" />
+            <div className="plotter-lightmap-legend-labels">
+              <span>{effectiveMaxValue.toFixed(0)}V</span>
+              <span>{effectiveMinValue.toFixed(0)}V</span>
             </div>
           </div>
         </div>
