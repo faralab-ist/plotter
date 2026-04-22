@@ -24,7 +24,6 @@
 }
 
 .lightmap-wrapper {
-  width: 400px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -36,8 +35,6 @@
 
 .lightmap-grid {
   display: grid;
-  width: 400px;
-  height: 400px;
   background-color: #ffffff;
   padding: 0;
   border-radius: 8px ;
@@ -68,6 +65,7 @@
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   min-width: 125px;
+  height: 350px;
 }
 
 .legend h3 {
@@ -87,14 +85,6 @@
   width: 60px;
   height: 300px;
   border-radius: 4px;
-  background: linear-gradient(
-    to top,
-    hsl(286, 88%, 25%),
-    hsl(288, 99%, 33%),
-    hsl(30, 100%, 41%),
-    hsl(32, 100%, 50%),
-    hsl(36, 100%, 54%)
-  );
   border: 1px solid #ddd;
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }

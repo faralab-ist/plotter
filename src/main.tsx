@@ -10,3 +10,8 @@ createRoot(document.getElementById('root')!).render(
     <App />
   </StrictMode>,
 )
+
+
+// mudar cor
+// só atualiza o cursor quando o mexemos
+// ver resuloção
