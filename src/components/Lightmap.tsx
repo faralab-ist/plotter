@@ -21,6 +21,7 @@ export interface LightmapProps {
 }
 
 export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
+  const planePadding = 6;
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const [hoveredCell, setHoveredCell] = React.useState<{
     x: number;
@@ -60,7 +61,8 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
 
   const rowCount = data.length;
   const columnCount = data[0]?.length ?? 0;
-  const gridSize = 220;
+  const planeSize = 210;
+  const gridSize = planeSize - planePadding * 2;
   const gapSize = 0;
 
   const cellSize = React.useMemo(() => {
@@ -71,28 +73,18 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
     const availableWidth = gridSize - Math.max(0, columnCount - 1) * gapSize;
     const availableHeight = gridSize - Math.max(0, rowCount - 1) * gapSize;
 
-    return Math.max(
-      1,
-      Math.floor(Math.min(availableWidth / columnCount, availableHeight / rowCount)),
-    );
-  }, [columnCount, rowCount]);
+    return Math.min(availableWidth / columnCount, availableHeight / rowCount);
+  }, [columnCount, gapSize, rowCount]);
 
   const gridStyle = React.useMemo(
     () => ({
       gridTemplateColumns: `repeat(${columnCount}, ${cellSize}px)`,
+      gridTemplateRows: `repeat(${rowCount}, ${cellSize}px)`,
       gap: `${gapSize}px`,
       justifyContent: 'center' as const,
       alignContent: 'center' as const,
     }),
-    [cellSize, columnCount],
-  );
-
-  const cellStyle = React.useMemo(
-    () => ({
-      width: `${cellSize}px`,
-      height: `${cellSize}px`,
-    }),
-    [cellSize],
+    [cellSize, columnCount, gapSize, rowCount],
   );
 
   const getColorForValue = (normalizedValue: number): string => {
@@ -128,7 +120,6 @@ export const Lightmap: React.FC<LightmapProps> = ({ data }) => {
                 key={`${cell.x}-${cell.y}-${cell.z}`}
                 className="plotter-lightmap-cell"
                 style={{
-                  ...cellStyle,
                   backgroundColor: getColorForValue(cell.normalized),
                 }}
                 onMouseEnter={(event) => {
