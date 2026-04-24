@@ -43,7 +43,7 @@ const LightmapCellItem = React.memo<LightmapCellItemProps>(({
 });
 
 export function formatTooltip(cell: LightmapCell): string {
-  return `(${cell.x}, ${cell.y}, ${cell.z}) : ${cell.value.toFixed(2)}N`;
+  return `(${cell.x}, ${cell.y}, ${cell.z}) : ${cell.value.toFixed(2)} V·m`;
 }
 
 interface LightmapProps {
@@ -133,24 +133,19 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width, height, resolut
 
   const lightmapData = useMemo(() => downsample(data, resolution ?? 1), [data, resolution]);
 
-  const effectiveMax = useMemo(() => {
-    if (lightmapData.length === 0) return 0;
-    return Math.max(...lightmapData.map(cell => cell.value));
-  }, [lightmapData]);
+  const maxValue = useMemo(() => {
+    if (lightmapData.length === 0) return 1;
 
-  const effectiveMin = useMemo(() => {
-    if (lightmapData.length === 0) return 0;
-    return Math.min(...lightmapData.map(cell => cell.value));
+    const max = Math.max(...lightmapData.map(cell => cell.value));
+    return max === 0 ? 1 : max;
   }, [lightmapData]);
 
   const normalizedData = useMemo(() => {
-    const range = effectiveMax - effectiveMin || 1;
-
     return lightmapData.map(cell => ({
       ...cell,
-      normalized: (cell.value - effectiveMin) / range,
+      normalized: cell.value / maxValue,
     }));
-  }, [lightmapData, effectiveMax, effectiveMin]);
+  }, [lightmapData, maxValue]);
 
   const gridWidth = width ?? 400;
   const gridHeight = height ?? 400;
@@ -244,12 +239,14 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width, height, resolut
             <div
               className="legend-color"
               style={{
-                background: `linear-gradient(to top, ${getColorForValue(0, baseHue)}, ${getColorForValue(0.25, baseHue)}, ${getColorForValue(0.5, baseHue)}, ${getColorForValue(0.75, baseHue)}, ${getColorForValue(1, baseHue)})`,
+                background: `linear-gradient(to top, ${getColorForValue(0, baseHue)}, 
+                ${getColorForValue(0.25, baseHue)}, ${getColorForValue(0.5, baseHue)}, 
+                ${getColorForValue(0.75, baseHue)}, ${getColorForValue(1, baseHue)})`,
               }}
             />
             <div className="legend-labels">
-              <span>{effectiveMax.toFixed(0)}N</span>
-              <span>{effectiveMin.toFixed(0)}N</span>
+              <span>1.0</span>
+              <span>0.0</span>
             </div>
           </div>
         </div>

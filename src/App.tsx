@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Lightmap } from "./components/Lightmap";
 
-const GRID_SIZE = 100;
+const GRID_SIZE = 50;
 
 type StaticCell = {
   x: number;
@@ -40,6 +40,7 @@ function buildMatrix(
 }
 
 export function App() {
+  
   const staticGridRef = useRef<StaticCell[][]>(buildStaticGrid(GRID_SIZE));
   const [matrix, setMatrix] = useState(() =>
     buildMatrix(staticGridRef.current, GRID_SIZE, 0)
@@ -55,6 +56,7 @@ export function App() {
 
     return () => clearInterval(interval);
   }, []);
-
+  
   return <Lightmap data={matrix} width={400} height={400} resolution={1} />;
+  
 }
