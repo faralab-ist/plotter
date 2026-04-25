@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import '../styles/Lightmap.css';
 
 export type LightmapCell_Input = [[number, number, number], number];
@@ -10,40 +10,8 @@ export interface LightmapCell {
   z: number;
 }
 
-interface LightmapCellItemProps {
-  color: string;
-  cellWidth: number;
-  cellHeight: number;
-  onMouseEnter: (e: React.MouseEvent) => void;
-  onMouseMove: (e: React.MouseEvent) => void;
-  onMouseLeave: () => void;
-}
-
-const LightmapCellItem = React.memo<LightmapCellItemProps>(({ 
-  color, 
-  cellWidth, 
-  cellHeight, 
-  onMouseEnter, 
-  onMouseMove, 
-  onMouseLeave 
-}) => {
-  return (
-    <div
-      className="lightmap-cell"
-      style={{
-        width: `${cellWidth}px`,
-        height: `${cellHeight}px`,
-        backgroundColor: color,
-      }}
-      onMouseEnter={onMouseEnter}
-      onMouseMove={onMouseMove}
-      onMouseLeave={onMouseLeave}
-    />
-  );
-});
-
 export function formatTooltip(cell: LightmapCell): string {
-  return `(${cell.x}, ${cell.y}, ${cell.z}) : ${cell.value.toFixed(2)} V·m`;
+  return `(${cell.x}, ${cell.y}, ${cell.z}) : ${cell.value.toFixed(2)} V/m`;
 }
 
 interface LightmapProps {
@@ -51,7 +19,7 @@ interface LightmapProps {
   width?: number
   height?: number
   resolution?: number
-  baseHue?: number
+  circular?: boolean
 }
 
 export function downsample(
@@ -100,117 +68,168 @@ export function downsample(
   return result;
 }
 
-export function getColorForValue(normalizedValue: number, baseHue: number): string {
-  const hue0 = ((baseHue % 360) + 360) % 360;
-
+export function getColorForValue(normalizedValue: number): string {
   const t = Math.max(0, Math.min(1, normalizedValue));
-
-  const hue1 = (hue0 + 30) % 360;
-  const hue2 = (hue0 + 60) % 360;
 
   let hue: number;
   let saturation: number;
   let lightness: number;
 
   if (t <= 0.5) {
-    const s = t / 0.5; // s in [0, 1]
-    hue = hue0 + (hue1 - hue0) * s;
-    saturation = 60 + (90 - 60) * s;
-    lightness = 20 + (40 - 20) * s;
+    // vermelho → preto
+    const s = t / 0.5; // s ∈ [0, 1]
+    hue = 0;
+    saturation = 100 * (1 - s);
+    lightness = 50 * (1 - s);
   } else {
-    const s = (t - 0.5) / 0.5; // s in [0, 1]
-    hue = hue1 + (hue2 - hue1) * s;
-    saturation = 90 + (100 - 90) * s;
-    lightness = 40 + (55 - 40) * s;
+    // preto → azul
+    const s = (t - 0.5) / 0.5; // s ∈ [0, 1]
+    hue = 240;
+    saturation = 100 * s;
+    lightness = 50 * s;
   }
 
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
-export const Lightmap: React.FC<LightmapProps> = ({ data, width, height, resolution, baseHue = 286 }) => {
+export function isCellInCircle(
+  cellCenterX: number,
+  cellCenterY: number,
+  circleCenterX: number,
+  circleCenterY: number,
+  radius: number
+): boolean {
+  return (
+    (cellCenterX - circleCenterX) ** 2 + (cellCenterY - circleCenterY) ** 2 <= radius ** 2
+  );
+}
+
+export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 400, resolution = 1, circular = false }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const lightmapData = useMemo(() => downsample(data, resolution ?? 1), [data, resolution]);
-
-  const maxValue = useMemo(() => {
-    if (lightmapData.length === 0) return 1;
-
-    const max = Math.max(...lightmapData.map(cell => cell.value));
-    return max === 0 ? 1 : max;
-  }, [lightmapData]);
 
   const normalizedData = useMemo(() => {
     return lightmapData.map(cell => ({
       ...cell,
-      normalized: cell.value / maxValue,
+      // Normalização fixa sobre intervalo [-100, 100]
+      normalized: Math.max(0, Math.min(1, (cell.value + 100) / 200)),
     }));
-  }, [lightmapData, maxValue]);
+  }, [lightmapData]);
 
   const gridWidth = width ?? 400;
   const gridHeight = height ?? 400;
-  const GAP_SIZE = 0;
 
   const clampedRes = (!isFinite(resolution ?? 1) || isNaN(resolution ?? 1) || (resolution ?? 1) <= 0 || (resolution ?? 1) > 1) ? 1 : (resolution ?? 1);
   const blockSize = Math.ceil(1 / clampedRes);
   const rowCount = Math.ceil(data.length / blockSize);
   const columnCount = Math.ceil((data[0]?.length ?? 0) / blockSize);
 
+  // Não usar Math.floor aqui — guardar o valor exato para calcular posições proporcionais
   const cellWidth = useMemo(() => {
     if (columnCount === 0) return 0;
-    return Math.floor(gridWidth / columnCount);
+    return gridWidth / columnCount;
   }, [gridWidth, columnCount]);
 
   const cellHeight = useMemo(() => {
     if (rowCount === 0) return 0;
-    return Math.floor(gridHeight / rowCount);
+    return gridHeight / rowCount;
   }, [gridHeight, rowCount]);
 
-  const gridStyle = useMemo(
-    () => ({
-      width: gridWidth,
-      height: gridHeight,
-      gridTemplateColumns: `repeat(${columnCount}, ${cellWidth}px)`,
-      gridTemplateRows: `repeat(${rowCount}, ${cellHeight}px)`,
-      gap: `${GAP_SIZE}px`,
-      justifyContent: 'center' as const,
-      alignContent: 'center' as const,
-    }),
-    [gridWidth, gridHeight, columnCount, rowCount, cellWidth, cellHeight]
-  );
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10 });
-  }, []);
+    const circleCenterX = gridWidth / 2;
+    const circleCenterY = gridHeight / 2;
+    const radius = Math.min(gridWidth, gridHeight) / 2;
 
-  const handleMouseLeave = useCallback(() => {
+    if (circular) {
+      //omite cells fora do circulo
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
+      ctx.clip();
+    }
+
+    normalizedData.forEach((cell, index) => {
+      const col = index % columnCount;
+      const row = Math.floor(index / columnCount);
+
+      // Calcular posição e tamanho com Math.round baseado no índice para evitar
+      // gaps de sub-pixel entre células adjacentes
+      const x = Math.round(col * gridWidth / columnCount);
+      const y = Math.round(row * gridHeight / rowCount);
+      const w = Math.round((col + 1) * gridWidth / columnCount) - x;
+      const h = Math.round((row + 1) * gridHeight / rowCount) - y;
+
+      ctx.fillStyle = getColorForValue(cell.normalized);
+      ctx.fillRect(x, y, w, h);
+    });
+
+    if (circular) {
+      ctx.restore();
+    }
+  }, [normalizedData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight]);
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const colIndex = Math.floor(mouseX / cellWidth);
+    const rowIndex = Math.floor(mouseY / cellHeight);
+    const cellIndex = rowIndex * columnCount + colIndex;
+
+    if (circular) {
+      const centerX = colIndex * cellWidth + cellWidth / 2;
+      const centerY = rowIndex * cellHeight + cellHeight / 2;
+      const circleCenterX = gridWidth / 2;
+      const circleCenterY = gridHeight / 2;
+      const radius = Math.min(gridWidth, gridHeight) / 2;
+      if (!isCellInCircle(centerX, centerY, circleCenterX, circleCenterY, radius)) {
+        setHoveredIndex(null);
+        return;
+      }
+    }
+
+    if (cellIndex >= 0 && cellIndex < normalizedData.length) {
+      setHoveredIndex(cellIndex);
+      setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10 });
+    } else {
+      setHoveredIndex(null);
+    }
+  };
+
+  const handleCanvasMouseLeave = () => {
     setHoveredIndex(null);
-  }, []);
+  };
 
   return (
     <div className="lightmap-container">
       <div className="content">
         <div className="lightmap-wrapper">
-          <div className="lightmap-grid" style={gridStyle}>
-            {normalizedData.map((cell, index) => {
-              const handleMouseEnter = (e: React.MouseEvent) => {
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                setTooltipPos({ x: rect.left, y: rect.top });
-                setHoveredIndex(index);
-              };
-
-              return (
-                <LightmapCellItem
-                  key={`${cell.x}-${cell.y}-${cell.z}`}
-                  color={getColorForValue(cell.normalized, baseHue)}
-                  cellWidth={cellWidth}
-                  cellHeight={cellHeight}
-                  onMouseEnter={handleMouseEnter}
-                  onMouseMove={handleMouseMove}
-                  onMouseLeave={handleMouseLeave}
-                />
-              );
-            })}
+          <div
+            style={{
+              borderRadius: circular ? '50%' : undefined,
+              overflow: circular ? 'hidden' : undefined,
+              display: 'inline-block',
+              lineHeight: 0,
+            }}
+          >
+            <canvas
+              ref={canvasRef}
+              width={gridWidth}
+              height={gridHeight}
+              style={{ display: 'block', borderRadius: circular ? undefined : '2px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+              onMouseMove={handleCanvasMouseMove}
+              onMouseLeave={handleCanvasMouseLeave}
+            />
           </div>
           {hoveredIndex !== null && normalizedData[hoveredIndex] !== undefined && (
             <div
@@ -222,7 +241,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width, height, resolut
                 backgroundColor: 'rgba(0, 0, 0, 0.9)',
                 color: 'white',
                 padding: '8px 12px',
-                borderRadius: '4px',
+                borderRadius: '8px',
                 fontSize: '12px',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
@@ -234,19 +253,19 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width, height, resolut
           )}
         </div>
         <div className="legend">
-          <h3>Legenda</h3>
+          <h3>Legend</h3>
           <div className="legend-gradient">
             <div
               className="legend-color"
               style={{
-                background: `linear-gradient(to top, ${getColorForValue(0, baseHue)}, 
-                ${getColorForValue(0.25, baseHue)}, ${getColorForValue(0.5, baseHue)}, 
-                ${getColorForValue(0.75, baseHue)}, ${getColorForValue(1, baseHue)})`,
+                background: `linear-gradient(to top, ${getColorForValue(0)}, 
+                ${getColorForValue(0.25)}, ${getColorForValue(0.5)}, 
+                ${getColorForValue(0.75)}, ${getColorForValue(1)})`,
               }}
             />
             <div className="legend-labels">
-              <span>1.0</span>
-              <span>0.0</span>
+              <span>100V/m</span>
+              <span>-100V/m</span>
             </div>
           </div>
         </div>

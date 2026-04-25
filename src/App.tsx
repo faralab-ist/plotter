@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Lightmap } from "./components/Lightmap";
 
-const GRID_SIZE = 50;
+const GRID_SIZE = 150;
 
 type StaticCell = {
   x: number;
@@ -33,7 +33,8 @@ function buildMatrix(
       const dx = x - centerX;
       const dy = y - centerY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const value = Math.max(0, Math.round(100 * (1 - distance / maxDistance)));
+      // Valores no intervalo [-100, 100] para usar a paleta divergente
+      const value = Math.round(200 * (1 - distance / maxDistance) - 100);
       return [[x, y, z], value];
     })
   );
