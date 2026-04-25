@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import '../styles/Lightmap.css';
+import { AxisReference } from './AxisReference';
 
 export type LightmapCell_Input = [[number, number, number], number];
 
@@ -20,6 +21,7 @@ interface LightmapProps {
   height?: number
   resolution?: number
   circular?: boolean
+  showAxis?: boolean
 }
 
 export function downsample(
@@ -111,7 +113,7 @@ export function isCellInCircle(
   );
 }
 
-export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 400, resolution = 1, circular = false }) => {
+export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 400, resolution = 1, circular = false, showAxis = true }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -136,7 +138,6 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
     return gridHeight / rowCount;
   }, [gridHeight, rowCount]);
 
-  const axisScale = Math.min(gridWidth, gridHeight);
   const colorRange = useMemo(() => {
     if (lightmapData.length === 0) {
       return { min: -1, max: 1 };
@@ -162,16 +163,6 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
     const normalized = ((value - min) / (max - min)) * 2 - 1;
     return Math.max(-1, Math.min(1, normalized));
   };
-
-  const axisStyles = {
-    '--axis-gap': `${Math.max(16, Math.round(axisScale * 0.05))}px`,
-    '--axis-thickness': `${Math.max(3, Math.round(axisScale * 0.01))}px`,
-    '--axis-arrow-size': `${Math.max(9, Math.round(axisScale * 0.03))}px`,
-    '--axis-origin-size': `${Math.max(12, Math.round(axisScale * 0.04))}px`,
-    '--axis-color-x': '#f5f5f5',
-    '--axis-color-y': '#f5f5f5',
-    '--axis-color-origin': '#f5f5f5',
-  } as React.CSSProperties;
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -247,7 +238,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
     <div className="lightmap-container">
       <div className="content">
         <div className="lightmap-wrapper">
-          <div className="lightmap-canvas-frame" style={axisStyles}>
+          <div className="lightmap-canvas-frame">
             <div
               style={{
                 borderRadius: circular ? '50%' : undefined,
@@ -265,8 +256,17 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
                 onMouseLeave={handleCanvasMouseLeave}
               />
             </div>
-            <div className="lightmap-axis lightmap-axis-x" aria-hidden="true" />
-            <div className="lightmap-axis lightmap-axis-y" aria-hidden="true" />
+            {showAxis ? (
+              <AxisReference
+                data={data}
+                style={{ color: '#f5f5f5', thickness: 2, gap: 14, length: 55 }}
+              />
+            ) : (
+              <>
+                <div className="lightmap-axis lightmap-axis-x" aria-hidden="true" />
+                <div className="lightmap-axis lightmap-axis-y" aria-hidden="true" />
+              </>
+            )}
           </div>
           {hoveredIndex !== null && lightmapData[hoveredIndex] !== undefined && (
             <div

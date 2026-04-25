@@ -83,16 +83,6 @@
   border-right-color: var(--axis-color-y, #f5f5f5);
 }
 
-.lightmap-canvas-frame::before {
-  content: '';
-  position: absolute;
-  left: calc(-1 * var(--axis-gap, 20px) - (var(--axis-origin-size, 14px) - var(--axis-thickness, 4px)) / 2 + var(--axis-thickness, 4px) / 2);
-  bottom: calc(-1 * var(--axis-gap, 20px) - (var(--axis-origin-size, 14px) - var(--axis-thickness, 4px)) / 2 + var(--axis-thickness, 4px) / 2);
-  width: var(--axis-origin-size, 14px);
-  height: var(--axis-origin-size, 14px);
-  border-radius: 50%;
-  border: var(--axis-thickness, 4px) solid var(--axis-color-origin, #f5f5f5);
-}
 
 
 
