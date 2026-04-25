@@ -75,22 +75,23 @@ export function downsample(
 }
 
 export function getColorForValue(rawValue: number): string {
-  const t = Math.max(0, Math.min(1, (rawValue + 100) / 200));
+  const normalizedValue = Math.max(-1, Math.min(1, rawValue));
+  const t = (normalizedValue + 1) / 2;
 
   let hue: number;
   let saturation: number;
   let lightness: number;
 
   if (t <= 0.5) {
-    // vermelho -> preto
+    // azul -> preto
     const s = t / 0.5;
-    hue = 0;
+    hue = 240;
     saturation = 100 * (1 - s);
     lightness = 50 * (1 - s);
   } else {
-    // preto -> azul
+    // preto -> vermelho
     const s = (t - 0.5) / 0.5;
-    hue = 240;
+    hue = 0;
     saturation = 100 * s;
     lightness = 50 * s;
   }
@@ -135,6 +136,43 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
     return gridHeight / rowCount;
   }, [gridHeight, rowCount]);
 
+  const axisScale = Math.min(gridWidth, gridHeight);
+  const colorRange = useMemo(() => {
+    if (lightmapData.length === 0) {
+      return { min: -1, max: 1 };
+    }
+
+    let min = Number.POSITIVE_INFINITY;
+    let max = Number.NEGATIVE_INFINITY;
+
+    for (const cell of lightmapData) {
+      if (cell.value < min) min = cell.value;
+      if (cell.value > max) max = cell.value;
+    }
+
+    if (!isFinite(min) || !isFinite(max) || min === max) {
+      return { min: -1, max: 1 };
+    }
+
+    return { min, max };
+  }, [lightmapData]);
+
+  const normalizeToColorScale = (value: number): number => {
+    const { min, max } = colorRange;
+    const normalized = ((value - min) / (max - min)) * 2 - 1;
+    return Math.max(-1, Math.min(1, normalized));
+  };
+
+  const axisStyles = {
+    '--axis-gap': `${Math.max(16, Math.round(axisScale * 0.05))}px`,
+    '--axis-thickness': `${Math.max(3, Math.round(axisScale * 0.01))}px`,
+    '--axis-arrow-size': `${Math.max(9, Math.round(axisScale * 0.03))}px`,
+    '--axis-origin-size': `${Math.max(12, Math.round(axisScale * 0.04))}px`,
+    '--axis-color-x': '#f5f5f5',
+    '--axis-color-y': '#f5f5f5',
+    '--axis-color-origin': '#f5f5f5',
+  } as React.CSSProperties;
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -163,7 +201,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
       const w = Math.round((col + 1) * gridWidth / columnCount) - x;
       const h = Math.round((row + 1) * gridHeight / rowCount) - y;
 
-      ctx.fillStyle = getColorForValue(cell.value);
+      ctx.fillStyle = getColorForValue(normalizeToColorScale(cell.value));
       ctx.fillRect(x, y, w, h);
     });
 
@@ -209,22 +247,26 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
     <div className="lightmap-container">
       <div className="content">
         <div className="lightmap-wrapper">
-          <div
-            style={{
-              borderRadius: circular ? '50%' : undefined,
-              overflow: circular ? 'hidden' : undefined,
-              display: 'inline-block',
-              lineHeight: 0,
-            }}
-          >
-            <canvas
-              ref={canvasRef}
-              width={gridWidth}
-              height={gridHeight}
-              style={{ display: 'block', borderRadius: circular ? undefined : '2px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
-              onMouseMove={handleCanvasMouseMove}
-              onMouseLeave={handleCanvasMouseLeave}
-            />
+          <div className="lightmap-canvas-frame" style={axisStyles}>
+            <div
+              style={{
+                borderRadius: circular ? '50%' : undefined,
+                overflow: circular ? 'hidden' : undefined,
+                display: 'inline-block',
+                lineHeight: 0,
+              }}
+            >
+              <canvas
+                ref={canvasRef}
+                width={gridWidth}
+                height={gridHeight}
+                style={{ display: 'block', borderRadius: circular ? undefined : '2px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseLeave={handleCanvasMouseLeave}
+              />
+            </div>
+            <div className="lightmap-axis lightmap-axis-x" aria-hidden="true" />
+            <div className="lightmap-axis lightmap-axis-y" aria-hidden="true" />
           </div>
           {hoveredIndex !== null && lightmapData[hoveredIndex] !== undefined && (
             <div
@@ -253,14 +295,14 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
             <div
               className="legend-color"
               style={{
-                background: `linear-gradient(to top, ${getColorForValue(-100)}, 
-                ${getColorForValue(-50)}, ${getColorForValue(0)}, 
-                ${getColorForValue(50)}, ${getColorForValue(100)})`,
+                background: `linear-gradient(to top, ${getColorForValue(-1)}, 
+                ${getColorForValue(-0.5)}, ${getColorForValue(0)}, 
+                ${getColorForValue(0.5)}, ${getColorForValue(1)})`,
               }}
             />
             <div className="legend-labels">
-              <span>100V/m</span>
-              <span>-100V/m</span>
+              <span>1</span>
+              <span>-1</span>
             </div>
           </div>
         </div>

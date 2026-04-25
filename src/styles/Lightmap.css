@@ -30,6 +30,70 @@
   align-items: center;
 }
 
+.lightmap-canvas-frame {
+  position: relative;
+  display: inline-block;
+  margin-left: calc(var(--axis-gap, 20px) + var(--axis-thickness, 4px));
+  margin-bottom: calc(var(--axis-gap, 20px) + var(--axis-thickness, 4px));
+}
+
+.lightmap-axis {
+  position: absolute;
+  background: var(--axis-color-x, #f5f5f5);
+  border-radius: 999px;
+  pointer-events: none;
+  opacity: 0.95;
+}
+
+.lightmap-axis::after {
+  content: '';
+  position: absolute;
+  width: var(--axis-arrow-size, 10px);
+  height: var(--axis-arrow-size, 10px);
+  border-top: var(--axis-thickness, 4px) solid var(--axis-color-x, #f5f5f5);
+  border-right: var(--axis-thickness, 4px) solid var(--axis-color-x, #f5f5f5);
+}
+
+.lightmap-axis-x {
+  left: calc(-0.2* var(--axis-gap, 20px));
+  bottom: calc(-0.7 * var(--axis-gap, 20px));
+  width: calc(100% + var(--axis-gap, 20px));
+  height: var(--axis-thickness, 4px);
+}
+
+.lightmap-axis-x::after {
+  right: 0;
+  top: calc((var(--axis-thickness, 4px) - var(--axis-arrow-size, 10px)) / 1.5);
+  transform: rotate(45deg);
+}
+
+.lightmap-axis-y {
+  left: calc(-0.7 * var(--axis-gap, 20px));
+  top: calc(-0.9 * var(--axis-gap, 20px));
+  height: calc(100% + var(--axis-gap, 20px));
+  width: var(--axis-thickness, 4px);
+  background: var(--axis-color-y, #f5f5f5);
+}
+
+.lightmap-axis-y::after {
+  top: 0;
+  left: calc((var(--axis-thickness, 4px) - var(--axis-arrow-size, 10px)) / 1.4);
+  transform: rotate(-45deg);
+  border-top-color: var(--axis-color-y, #f5f5f5);
+  border-right-color: var(--axis-color-y, #f5f5f5);
+}
+
+.lightmap-canvas-frame::before {
+  content: '';
+  position: absolute;
+  left: calc(-1 * var(--axis-gap, 20px) - (var(--axis-origin-size, 14px) - var(--axis-thickness, 4px)) / 2 + var(--axis-thickness, 4px) / 2);
+  bottom: calc(-1 * var(--axis-gap, 20px) - (var(--axis-origin-size, 14px) - var(--axis-thickness, 4px)) / 2 + var(--axis-thickness, 4px) / 2);
+  width: var(--axis-origin-size, 14px);
+  height: var(--axis-origin-size, 14px);
+  border-radius: 50%;
+  border: var(--axis-thickness, 4px) solid var(--axis-color-origin, #f5f5f5);
+}
+
 
 
 
