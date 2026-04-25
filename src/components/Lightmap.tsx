@@ -31,6 +31,12 @@ export function downsample(
       ? 1
       : resolution;
 
+  if (clampedResolution === 1) {
+    return data.flatMap(row =>
+      row.map(([[x, y, z], value]) => ({ x, y, z, value }))
+    );
+  }
+
   const blockSize = Math.ceil(1 / clampedResolution);
   const rows = data.length;
   const cols = data[0]?.length ?? 0;
@@ -68,22 +74,22 @@ export function downsample(
   return result;
 }
 
-export function getColorForValue(normalizedValue: number): string {
-  const t = Math.max(0, Math.min(1, normalizedValue));
+export function getColorForValue(rawValue: number): string {
+  const t = Math.max(0, Math.min(1, (rawValue + 100) / 200));
 
   let hue: number;
   let saturation: number;
   let lightness: number;
 
   if (t <= 0.5) {
-    // vermelho → preto
-    const s = t / 0.5; // s ∈ [0, 1]
+    // vermelho -> preto
+    const s = t / 0.5;
     hue = 0;
     saturation = 100 * (1 - s);
     lightness = 50 * (1 - s);
   } else {
-    // preto → azul
-    const s = (t - 0.5) / 0.5; // s ∈ [0, 1]
+    // preto -> azul
+    const s = (t - 0.5) / 0.5;
     hue = 240;
     saturation = 100 * s;
     lightness = 50 * s;
@@ -111,14 +117,6 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
 
   const lightmapData = useMemo(() => downsample(data, resolution ?? 1), [data, resolution]);
 
-  const normalizedData = useMemo(() => {
-    return lightmapData.map(cell => ({
-      ...cell,
-      // Normalização fixa sobre intervalo [-100, 100]
-      normalized: Math.max(0, Math.min(1, (cell.value + 100) / 200)),
-    }));
-  }, [lightmapData]);
-
   const gridWidth = width ?? 400;
   const gridHeight = height ?? 400;
 
@@ -127,7 +125,6 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
   const rowCount = Math.ceil(data.length / blockSize);
   const columnCount = Math.ceil((data[0]?.length ?? 0) / blockSize);
 
-  // Não usar Math.floor aqui — guardar o valor exato para calcular posições proporcionais
   const cellWidth = useMemo(() => {
     if (columnCount === 0) return 0;
     return gridWidth / columnCount;
@@ -157,25 +154,23 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
       ctx.clip();
     }
 
-    normalizedData.forEach((cell, index) => {
+    lightmapData.forEach((cell, index) => {
       const col = index % columnCount;
       const row = Math.floor(index / columnCount);
 
-      // Calcular posição e tamanho com Math.round baseado no índice para evitar
-      // gaps de sub-pixel entre células adjacentes
       const x = Math.round(col * gridWidth / columnCount);
       const y = Math.round(row * gridHeight / rowCount);
       const w = Math.round((col + 1) * gridWidth / columnCount) - x;
       const h = Math.round((row + 1) * gridHeight / rowCount) - y;
 
-      ctx.fillStyle = getColorForValue(cell.normalized);
+      ctx.fillStyle = getColorForValue(cell.value);
       ctx.fillRect(x, y, w, h);
     });
 
     if (circular) {
       ctx.restore();
     }
-  }, [normalizedData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight]);
+  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight]);
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -198,7 +193,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
       }
     }
 
-    if (cellIndex >= 0 && cellIndex < normalizedData.length) {
+    if (cellIndex >= 0 && cellIndex < lightmapData.length) {
       setHoveredIndex(cellIndex);
       setTooltipPos({ x: e.clientX + 10, y: e.clientY + 10 });
     } else {
@@ -231,7 +226,7 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
               onMouseLeave={handleCanvasMouseLeave}
             />
           </div>
-          {hoveredIndex !== null && normalizedData[hoveredIndex] !== undefined && (
+          {hoveredIndex !== null && lightmapData[hoveredIndex] !== undefined && (
             <div
               className="lightmap-tooltip"
               style={{
@@ -241,14 +236,14 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
                 backgroundColor: 'rgba(0, 0, 0, 0.9)',
                 color: 'white',
                 padding: '8px 12px',
-                borderRadius: '8px',
+                borderRadius: '4px',
                 fontSize: '12px',
                 whiteSpace: 'nowrap',
                 pointerEvents: 'none',
                 zIndex: 1000,
               }}
             >
-              {formatTooltip(normalizedData[hoveredIndex]!)}
+              {formatTooltip(lightmapData[hoveredIndex]!)}
             </div>
           )}
         </div>
@@ -258,9 +253,9 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
             <div
               className="legend-color"
               style={{
-                background: `linear-gradient(to top, ${getColorForValue(0)}, 
-                ${getColorForValue(0.25)}, ${getColorForValue(0.5)}, 
-                ${getColorForValue(0.75)}, ${getColorForValue(1)})`,
+                background: `linear-gradient(to top, ${getColorForValue(-100)}, 
+                ${getColorForValue(-50)}, ${getColorForValue(0)}, 
+                ${getColorForValue(50)}, ${getColorForValue(100)})`,
               }}
             />
             <div className="legend-labels">
