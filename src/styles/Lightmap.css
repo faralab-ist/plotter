@@ -118,7 +118,7 @@
   background-color: #f9f9f9;
   border-radius: 2px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  min-width: 125px;
+  min-width: 150px;
   height: 350px;
 }
 
@@ -133,6 +133,36 @@
   flex-direction: row;
   gap: 10px;
   align-items: center;
+}
+
+.legend-scale {
+  position: relative;
+  height: 300px;
+  width: 52px;
+  flex-shrink: 0;
+}
+
+.legend-scale-tick {
+  position: absolute;
+  right: 0;
+  transform: translateY(-50%);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  line-height: 1;
+}
+
+.legend-scale-tick::after {
+  content: '';
+  position: absolute;
+  right: -6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 1px;
+  background: #aaa;
 }
 
 .legend-color {

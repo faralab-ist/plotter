@@ -87,15 +87,15 @@ export function getColorForValue(rawValue: number): string {
   let lightness: number;
 
   if (t <= 0.5) {
-    // vermelho -> preto
+    // azul -> preto  (valores negativos)
     const s = t / 0.5;
-    hue = 0;
+    hue = 240;
     saturation = 100 * (1 - s);
     lightness = 50 * (1 - s);
   } else {
-    // preto -> azul
+    // preto -> vermelho  (valores positivos)
     const s = (t - 0.5) / 0.5;
-    hue = 240;
+    hue = 0;
     saturation = 100 * s;
     lightness = 50 * s;
   }
@@ -227,10 +227,22 @@ export const Lightmap: React.FC<LightmapProps> = ({
       ctx.fillRect(x, y, w, h);
     });
 
+    // Highlight da célula hovered — overlay branco semi-transparente
+    if (hoveredIndex !== null) {
+      const col = hoveredIndex % columnCount;
+      const row = Math.floor(hoveredIndex / columnCount);
+      const x = Math.round(col * gridWidth / columnCount);
+      const y = Math.round(row * gridHeight / rowCount);
+      const w = Math.round((col + 1) * gridWidth / columnCount) - x;
+      const h = Math.round((row + 1) * gridHeight / rowCount) - y;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+      ctx.fillRect(x, y, w, h);
+    }
+
     if (circular) {
       ctx.restore();
     }
-  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight, useModule]);
+  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight, useModule, hoveredIndex]);
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -323,6 +335,25 @@ export const Lightmap: React.FC<LightmapProps> = ({
         <div className="legend">
           <h3>Legend</h3>
           <div className="legend-gradient">
+            <div className="legend-scale">
+              {[0, 0.25, 0.5, 0.75, 1].map((t) => {
+                const value = colorRange.max - t * (colorRange.max - colorRange.min);
+                const label = Math.abs(value) >= 1000
+                  ? (value / 1000).toFixed(1) + 'k'
+                  : Math.abs(value) >= 10
+                    ? value.toFixed(1)
+                    : value.toFixed(2);
+                return (
+                  <span
+                    key={t}
+                    className="legend-scale-tick"
+                    style={{ top: `${t * 100}%` }}
+                  >
+                    {label}
+                  </span>
+                );
+              })}
+            </div>
             <div
               className="legend-color"
               style={{
