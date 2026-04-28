@@ -22,6 +22,8 @@ interface LightmapProps {
   resolution?: number
   circular?: boolean
   showAxis?: boolean
+  normalizationMin?: number
+  normalizationMax?: number
 }
 
 export function downsample(
@@ -85,15 +87,15 @@ export function getColorForValue(rawValue: number): string {
   let lightness: number;
 
   if (t <= 0.5) {
-    // azul -> preto
+    // vermelho -> preto
     const s = t / 0.5;
-    hue = 240;
+    hue = 0;
     saturation = 100 * (1 - s);
     lightness = 50 * (1 - s);
   } else {
-    // preto -> vermelho
+    // preto -> azul
     const s = (t - 0.5) / 0.5;
-    hue = 0;
+    hue = 240;
     saturation = 100 * s;
     lightness = 50 * s;
   }
@@ -113,7 +115,17 @@ export function isCellInCircle(
   );
 }
 
-export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 400, resolution = 1, circular = false, showAxis = true }) => {
+export const Lightmap: React.FC<LightmapProps> = ({
+  data,
+  width = 400,
+  height = 400,
+  resolution = 1,
+  circular = false,
+  showAxis = true,
+  normalizationMin,
+  normalizationMax,
+}) => {
+  const [useModule, setUseModule] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -151,17 +163,33 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
       if (cell.value > max) max = cell.value;
     }
 
+    if (isFinite(normalizationMin ?? NaN)) {
+      min = normalizationMin as number;
+    }
+
+    if (isFinite(normalizationMax ?? NaN)) {
+      max = normalizationMax as number;
+    }
+
     if (!isFinite(min) || !isFinite(max) || min === max) {
       return { min: -1, max: 1 };
     }
 
     return { min, max };
-  }, [lightmapData]);
+  }, [lightmapData, normalizationMin, normalizationMax]);
 
   const normalizeToColorScale = (value: number): number => {
     const { min, max } = colorRange;
     const normalized = ((value - min) / (max - min)) * 2 - 1;
     return Math.max(-1, Math.min(1, normalized));
+  };
+
+  const normalizeToModuleScale = (value: number): number => {
+    const { min, max } = colorRange;
+    const absMax = Math.max(Math.abs(min), Math.abs(max));
+    if (!isFinite(absMax) || absMax === 0) return 0;
+    const normalized = Math.abs(value) / absMax;
+    return Math.max(0, Math.min(1, normalized));
   };
 
   useEffect(() => {
@@ -192,14 +220,17 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
       const w = Math.round((col + 1) * gridWidth / columnCount) - x;
       const h = Math.round((row + 1) * gridHeight / rowCount) - y;
 
-      ctx.fillStyle = getColorForValue(normalizeToColorScale(cell.value));
+      const normalizedValue = useModule
+        ? normalizeToModuleScale(cell.value)
+        : normalizeToColorScale(cell.value);
+      ctx.fillStyle = getColorForValue(normalizedValue);
       ctx.fillRect(x, y, w, h);
     });
 
     if (circular) {
       ctx.restore();
     }
-  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight]);
+  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight, useModule]);
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -302,9 +333,16 @@ export const Lightmap: React.FC<LightmapProps> = ({ data, width = 400, height = 
             />
             <div className="legend-labels">
               <span>1</span>
-              <span>-1</span>
+              <span>{useModule ? '0' : '-1'}</span>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setUseModule(prev => !prev)}
+            style={{ marginTop: '8px' }}
+          >
+            {useModule ? 'default' : 'module'}
+          </button>
         </div>
       </div>
     </div>

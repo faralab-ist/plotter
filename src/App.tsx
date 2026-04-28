@@ -58,6 +58,6 @@ export function App() {
     return () => clearInterval(interval);
   }, []);
   
-  return <Lightmap data={matrix} width={400} height={400} resolution={1} />;
+  return <Lightmap data={matrix} width={400} height={400} resolution={1} normalizationMax={200} normalizationMin={-200}/>;
   
 }
