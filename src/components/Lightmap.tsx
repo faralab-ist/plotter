@@ -24,6 +24,7 @@ interface LightmapProps {
   showAxis?: boolean
   normalizationMin?: number
   normalizationMax?: number
+  legendHoverThreshold?: number
 }
 
 export function downsample(
@@ -103,6 +104,29 @@ export function getColorForValue(rawValue: number): string {
   return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
 }
 
+export function calculateHoverValue(
+  relativeY: number,
+  colorRange: { min: number; max: number }
+): number {
+  const { min, max } = colorRange;
+  if (max === min) return min;
+  return max - relativeY * (max - min);
+}
+
+export function sanitizeThreshold(value: unknown): number {
+  if (
+    value === undefined ||
+    value === null ||
+    typeof value !== 'number' ||
+    !isFinite(value) ||
+    isNaN(value) ||
+    value <= 0
+  ) {
+    return 0.05;
+  }
+  return value;
+}
+
 export function isCellInCircle(
   cellCenterX: number,
   cellCenterY: number,
@@ -115,6 +139,57 @@ export function isCellInCircle(
   );
 }
 
+interface LegendIndicatorProps {
+  relativeY: number;
+  value: number;
+}
+
+const LegendIndicator: React.FC<LegendIndicatorProps> = ({ relativeY, value }) => {
+  const label = Math.abs(value) >= 1000
+    ? (value / 1000).toFixed(1) + 'k'
+    : value.toFixed(2);
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: `${relativeY * 100}%`,
+        left: 0,
+        right: 0,
+        transform: 'translateY(-50%)',
+        pointerEvents: 'none',
+        zIndex: 10,
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          height: '2px',
+          backgroundColor: 'rgba(255, 255, 255, 0.9)',
+          boxShadow: '0 0 2px rgba(0,0,0,0.8)',
+        }}
+      />
+      <span
+        style={{
+          position: 'absolute',
+          left: '105%',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          fontSize: '0.7rem',
+          fontFamily: "'SF Mono', 'Fira Code', 'Consolas', monospace",
+          color: '#fff',
+          backgroundColor: 'rgba(0,0,0,0.75)',
+          padding: '1px 4px',
+          borderRadius: '2px',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {label} V/m
+      </span>
+    </div>
+  );
+};
+
 export const Lightmap: React.FC<LightmapProps> = ({
   data,
   width = 400,
@@ -124,11 +199,16 @@ export const Lightmap: React.FC<LightmapProps> = ({
   showAxis = true,
   normalizationMin,
   normalizationMax,
+  legendHoverThreshold,
 }) => {
   const [useModule, setUseModule] = useState(false);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [legendHoveredValue, setLegendHoveredValue] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const legendRafRef = useRef<number | null>(null);
+
+  const effectiveThreshold = useMemo(() => sanitizeThreshold(legendHoverThreshold), [legendHoverThreshold]);
 
   const lightmapData = useMemo(() => downsample(data, resolution ?? 1), [data, resolution]);
 
@@ -223,12 +303,26 @@ export const Lightmap: React.FC<LightmapProps> = ({
       const normalizedValue = useModule
         ? normalizeToModuleScale(cell.value)
         : normalizeToColorScale(cell.value);
-      ctx.fillStyle = getColorForValue(normalizedValue);
+
+      let fillColor: string;
+      if (legendHoveredValue !== null) {
+        const normalizedHover = useModule
+          ? normalizeToModuleScale(legendHoveredValue)
+          : normalizeToColorScale(legendHoveredValue);
+        const diff = Math.abs(normalizedValue - normalizedHover);
+        fillColor = diff <= effectiveThreshold * 2
+          ? getColorForValue(normalizedValue)
+          : '#000000';
+      } else {
+        fillColor = getColorForValue(normalizedValue);
+      }
+
+      ctx.fillStyle = fillColor;
       ctx.fillRect(x, y, w, h);
     });
 
-    // Highlight da célula hovered — overlay branco semi-transparente
-    if (hoveredIndex !== null) {
+    // Highlight da célula hovered — overlay branco semi-transparente (só quando não está em legend hover mode)
+    if (hoveredIndex !== null && legendHoveredValue === null) {
       const col = hoveredIndex % columnCount;
       const row = Math.floor(hoveredIndex / columnCount);
       const x = Math.round(col * gridWidth / columnCount);
@@ -242,7 +336,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
     if (circular) {
       ctx.restore();
     }
-  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight, useModule, hoveredIndex]);
+  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight, useModule, hoveredIndex, legendHoveredValue, effectiveThreshold]);
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -275,6 +369,27 @@ export const Lightmap: React.FC<LightmapProps> = ({
 
   const handleCanvasMouseLeave = () => {
     setHoveredIndex(null);
+  };
+
+  const handleLegendMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relativeY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const hoverValue = calculateHoverValue(relativeY, colorRange);
+    if (legendRafRef.current !== null) {
+      cancelAnimationFrame(legendRafRef.current);
+    }
+    legendRafRef.current = requestAnimationFrame(() => {
+      setLegendHoveredValue(hoverValue);
+      legendRafRef.current = null;
+    });
+  };
+
+  const handleLegendMouseLeave = () => {
+    if (legendRafRef.current !== null) {
+      cancelAnimationFrame(legendRafRef.current);
+      legendRafRef.current = null;
+    }
+    setLegendHoveredValue(null);
   };
 
   return (
@@ -332,7 +447,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
             </div>
           )}
         </div>
-        <div className="legend">
+        <div className="legend" style={{ '--legend-height': `${gridHeight}px` } as React.CSSProperties}>
           <h3>Legend</h3>
           <div className="legend-gradient">
             <div className="legend-scale">
@@ -357,11 +472,26 @@ export const Lightmap: React.FC<LightmapProps> = ({
             <div
               className="legend-color"
               style={{
+                position: 'relative',
                 background: `linear-gradient(to top, ${getColorForValue(-1)}, 
                 ${getColorForValue(-0.5)}, ${getColorForValue(0)}, 
                 ${getColorForValue(0.5)}, ${getColorForValue(1)})`,
+                cursor: 'crosshair',
               }}
-            />
+              onMouseMove={handleLegendMouseMove}
+              onMouseLeave={handleLegendMouseLeave}
+            >
+              {legendHoveredValue !== null && (
+                <LegendIndicator
+                  relativeY={
+                    colorRange.max !== colorRange.min
+                      ? (colorRange.max - legendHoveredValue) / (colorRange.max - colorRange.min)
+                      : 0
+                  }
+                  value={legendHoveredValue}
+                />
+              )}
+            </div>
             <div className="legend-labels">
               <span>1</span>
               <span>{useModule ? '0' : '-1'}</span>
