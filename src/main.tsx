@@ -36,7 +36,7 @@ let matrix : Array<Array<[[number, number, number], number]>> = generateMatrix(3
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Lightmap data={matrix} width={250}  height={150} resolution={0.1} normalizationMax={100} normalizationMin={0}/>
+    <App></App>
   </StrictMode>,
 )
 

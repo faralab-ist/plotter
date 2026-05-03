@@ -22,6 +22,8 @@ interface LightmapProps {
   resolution?: number
   circular?: boolean
   showAxis?: boolean
+  showYTicks?: boolean
+  showXTicks?: boolean
   normalizationMin?: number
   normalizationMax?: number
   legendHoverThreshold?: number
@@ -197,6 +199,8 @@ export const Lightmap: React.FC<LightmapProps> = ({
   resolution = 1,
   circular = false,
   showAxis = true,
+  showYTicks = true,
+  showXTicks = true,
   normalizationMin,
   normalizationMax,
   legendHoverThreshold,
@@ -219,6 +223,83 @@ export const Lightmap: React.FC<LightmapProps> = ({
   const blockSize = Math.ceil(1 / clampedRes);
   const rowCount = Math.ceil(data.length / blockSize);
   const columnCount = Math.ceil((data[0]?.length ?? 0) / blockSize);
+
+  const yTicks = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0 || rowCount <= 0) return [] as Array<{ row: number; value: number }>;
+
+    const maxTicks = 7;
+    const tickCount = Math.min(maxTicks, rowCount);
+    const ticks: Array<{ row: number; value: number }> = [];
+
+    for (let i = 0; i < tickCount; i++) {
+      const row = tickCount === 1 ? 0 : Math.round((i * (rowCount - 1)) / (tickCount - 1));
+      if (ticks.length > 0 && ticks[ticks.length - 1].row === row) continue;
+
+      const sourceRow = Math.min(row * blockSize, data.length - 1);
+      const cell = data[sourceRow]?.[0];
+      const yValue = cell && Array.isArray(cell[0]) ? cell[0][1] : undefined;
+      if (typeof yValue === 'number' && isFinite(yValue)) {
+        ticks.push({ row, value: yValue });
+      }
+    }
+
+    return ticks.filter(tick => tick.row !== rowCount - 1);
+  }, [data, rowCount, blockSize]);
+
+  const xTicks = useMemo(() => {
+    if (!Array.isArray(data) || data.length === 0 || columnCount <= 0) return [] as Array<{ col: number; value: number }>;
+
+    const maxTicks = 7;
+    const tickCount = Math.min(maxTicks, columnCount);
+    const ticks: Array<{ col: number; value: number }> = [];
+
+    for (let i = 0; i < tickCount; i++) {
+      const col = tickCount === 1 ? 0 : Math.round((i * (columnCount - 1)) / (tickCount - 1));
+      if (ticks.length > 0 && ticks[ticks.length - 1].col === col) continue;
+
+      const sourceCol = Math.min(col * blockSize, (data[0]?.length ?? 0) - 1);
+      const cell = data[data.length - 1]?.[sourceCol] ?? data[0]?.[sourceCol];
+      const xValue = cell && Array.isArray(cell[0]) ? cell[0][0] : undefined;
+      if (typeof xValue === 'number' && isFinite(xValue)) {
+        ticks.push({ col, value: xValue });
+      }
+    }
+
+    return ticks.filter(tick => tick.col !== 0);
+  }, [data, columnCount, blockSize]);
+
+  const buildMinorTicks = (positions: number[], count: number): number[] => {
+    if (positions.length < 2 || count <= 0) return [];
+    const minors: number[] = [];
+    for (let i = 0; i < positions.length - 1; i++) {
+      const start = positions[i];
+      const end = positions[i + 1];
+      const step = (end - start) / (count + 1);
+      for (let j = 1; j <= count; j++) {
+        minors.push(start + step * j);
+      }
+    }
+    return minors;
+  };
+
+  const yMinorTickRows = useMemo(() => {
+    const majorRows = yTicks.map(tick => tick.row);
+    if (majorRows.length === 0) return [];
+    const positions = Array.from(new Set([...majorRows, rowCount - 1])).sort((a, b) => a - b);
+    return buildMinorTicks(positions, 5);
+  }, [yTicks, rowCount]);
+  const xMinorTickCols = useMemo(() => {
+    const majorCols = xTicks.map(tick => tick.col);
+    if (majorCols.length === 0) return [];
+    const positions = Array.from(new Set([0, ...majorCols])).sort((a, b) => a - b);
+    return buildMinorTicks(positions, 5);
+  }, [xTicks]);
+
+  const formatAxisValue = (value: number): string => {
+    if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k`;
+    if (Math.abs(value) >= 10) return value.toFixed(1);
+    return value.toFixed(2);
+  };
 
   const cellWidth = useMemo(() => {
     if (columnCount === 0) return 0;
@@ -414,6 +495,52 @@ export const Lightmap: React.FC<LightmapProps> = ({
                 onMouseLeave={handleCanvasMouseLeave}
               />
             </div>
+            {showYTicks && yTicks.length > 0 && (
+              <div className="lightmap-y-ticks" aria-hidden="true">
+                {yTicks.map((tick) => (
+                  <div
+                    key={`${tick.row}-${tick.value}`}
+                    className="lightmap-y-tick"
+                    style={{ top: `${rowCount > 1 ? (tick.row / (rowCount - 1)) * 100 : 0}%` }}
+                  >
+                    <span className="lightmap-y-tick-label">{formatAxisValue(tick.value)}</span>
+                    <span className="lightmap-y-tick-line" />
+                  </div>
+                ))}
+                {yMinorTickRows.map((row, index) => (
+                  <div
+                    key={`y-minor-${row}-${index}`}
+                    className="lightmap-y-minor-tick"
+                    style={{ top: `${rowCount > 1 ? (row / (rowCount - 1)) * 100 : 0}%` }}
+                  >
+                    <span className="lightmap-y-minor-tick-line" />
+                  </div>
+                ))}
+              </div>
+            )}
+            {showXTicks && xTicks.length > 0 && (
+              <div className="lightmap-x-ticks" aria-hidden="true">
+                {xTicks.map((tick) => (
+                  <div
+                    key={`${tick.col}-${tick.value}`}
+                    className="lightmap-x-tick"
+                    style={{ left: `${columnCount > 1 ? (tick.col / (columnCount - 1)) * 100 : 0}%` }}
+                  >
+                    <span className="lightmap-x-tick-label">{formatAxisValue(tick.value)}</span>
+                    <span className="lightmap-x-tick-line" />
+                  </div>
+                ))}
+                {xMinorTickCols.map((col, index) => (
+                  <div
+                    key={`x-minor-${col}-${index}`}
+                    className="lightmap-x-minor-tick"
+                    style={{ left: `${columnCount > 1 ? (col / (columnCount - 1)) * 100 : 0}%` }}
+                  >
+                    <span className="lightmap-x-minor-tick-line" />
+                  </div>
+                ))}
+              </div>
+            )}
             {showAxis ? (
               <AxisReference
                 data={data}

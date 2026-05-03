@@ -83,6 +83,106 @@
   border-right-color: var(--axis-color-y, #f5f5f5);
 }
 
+.lightmap-y-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lightmap-y-tick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.lightmap-y-tick-line {
+  position: absolute;
+  left: 0;
+  width: 2%;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.lightmap-y-tick-label {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translate(-100%, -50%);
+  font-size: 0.5rem;
+  color: #e4e4e4;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  white-space: nowrap;
+}
+
+.lightmap-y-minor-tick {
+  position: absolute;
+  left: 0;
+  right: 0;
+  transform: translateY(-50%);
+}
+
+.lightmap-y-minor-tick-line {
+  position: absolute;
+  left: 0;
+  width: 1.2%;
+  top: 50%;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.lightmap-x-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.lightmap-x-tick {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+
+.lightmap-x-tick-line {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: 8px;
+  transform: translate(-50%, -4px);
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.lightmap-x-tick-label {
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translate(-50%, 3px);
+  font-size: 0.5rem;
+  color: #e4e4e4;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  white-space: nowrap;
+}
+
+.lightmap-x-minor-tick {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+}
+
+.lightmap-x-minor-tick-line {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 1px;
+  height: 4px;
+  transform: translate(-50%, -4px);
+  background: rgba(255, 255, 255, 0.55);
+}
+
 
 
 
