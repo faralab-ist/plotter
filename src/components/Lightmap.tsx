@@ -209,6 +209,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [legendHoveredValue, setLegendHoveredValue] = useState<number | null>(null);
+  const [legendPinnedValue, setLegendPinnedValue] = useState<number | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const legendRafRef = useRef<number | null>(null);
 
@@ -391,11 +392,13 @@ export const Lightmap: React.FC<LightmapProps> = ({
         ? normalizeToModuleScale(cell.value)
         : normalizeToColorScale(cell.value);
 
+      const activeLegendValue = legendPinnedValue ?? legendHoveredValue;
+
       let fillColor: string;
-      if (legendHoveredValue !== null) {
+      if (activeLegendValue !== null) {
         const normalizedHover = useModule
-          ? normalizeToModuleScale(legendHoveredValue)
-          : normalizeToColorScale(legendHoveredValue);
+          ? normalizeToModuleScale(activeLegendValue)
+          : normalizeToColorScale(activeLegendValue);
         const diff = Math.abs(normalizedValue - normalizedHover);
         fillColor = diff <= effectiveThreshold * 2
           ? getColorForValue(normalizedValue)
@@ -409,7 +412,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
     });
 
     // Highlight da célula hovered — overlay branco semi-transparente (só quando não está em legend hover mode)
-    if (hoveredIndex !== null && legendHoveredValue === null) {
+    if (hoveredIndex !== null && (legendPinnedValue ?? legendHoveredValue) === null) {
       const col = hoveredIndex % columnCount;
       const row = Math.floor(hoveredIndex / columnCount);
       const x = Math.round(col * gridWidth / columnCount);
@@ -423,7 +426,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
     if (circular) {
       ctx.restore();
     }
-  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight, useModule, hoveredIndex, legendHoveredValue, effectiveThreshold]);
+  }, [lightmapData, cellWidth, cellHeight, columnCount, circular, gridWidth, gridHeight, useModule, hoveredIndex, legendHoveredValue, legendPinnedValue, effectiveThreshold]);
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -464,6 +467,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
   };
 
   const handleLegendMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (legendPinnedValue !== null) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const relativeY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
     const hoverValue = calculateHoverValue(relativeY, colorRange);
@@ -474,6 +478,19 @@ export const Lightmap: React.FC<LightmapProps> = ({
       setLegendHoveredValue(hoverValue);
       legendRafRef.current = null;
     });
+  };
+
+  const handleLegendClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const relativeY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
+    const clickedValue = calculateHoverValue(relativeY, colorRange);
+    setLegendHoveredValue(clickedValue);
+    setLegendPinnedValue(clickedValue);
+  };
+
+  const handleStopHovering = () => {
+    setLegendPinnedValue(null);
+    setLegendHoveredValue(null);
   };
 
   const handleLegendMouseLeave = () => {
@@ -618,15 +635,16 @@ export const Lightmap: React.FC<LightmapProps> = ({
               }}
               onMouseMove={handleLegendMouseMove}
               onMouseLeave={handleLegendMouseLeave}
+              onClick={handleLegendClick}
             >
-              {legendHoveredValue !== null && (
+              {(legendPinnedValue ?? legendHoveredValue) !== null && (
                 <LegendIndicator
                   relativeY={
                     colorRange.max !== colorRange.min
-                      ? (colorRange.max - legendHoveredValue) / (colorRange.max - colorRange.min)
+                      ? (colorRange.max - (legendPinnedValue ?? legendHoveredValue)!) / (colorRange.max - colorRange.min)
                       : 0
                   }
-                  value={legendHoveredValue}
+                  value={(legendPinnedValue ?? legendHoveredValue)!}
                 />
               )}
             </div>
@@ -641,6 +659,14 @@ export const Lightmap: React.FC<LightmapProps> = ({
             style={{ marginTop: '8px' }}
           >
             {useModule ? 'default' : 'module'}
+          </button>
+          <button
+            type="button"
+            onClick={handleStopHovering}
+            disabled={legendPinnedValue === null}
+            style={{ marginTop: '8px' }}
+          >
+            stop hovering
           </button>
         </div>
       </div>
