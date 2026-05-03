@@ -225,48 +225,54 @@ export const Lightmap: React.FC<LightmapProps> = ({
   const columnCount = Math.ceil((data[0]?.length ?? 0) / blockSize);
 
   const yTicks = useMemo(() => {
-    if (!Array.isArray(data) || data.length === 0 || rowCount <= 0) return [] as Array<{ row: number; value: number }>;
+    if (!Array.isArray(data) || data.length === 0) {
+      return [] as Array<{ row: number; value: number; position: number }>;
+    }
 
+    const sourceRowCount = data.length;
     const maxTicks = 7;
-    const tickCount = Math.min(maxTicks, rowCount);
-    const ticks: Array<{ row: number; value: number }> = [];
+    const tickCount = Math.min(maxTicks, sourceRowCount);
+    const ticks: Array<{ row: number; value: number; position: number }> = [];
 
     for (let i = 0; i < tickCount; i++) {
-      const row = tickCount === 1 ? 0 : Math.round((i * (rowCount - 1)) / (tickCount - 1));
+      const row = tickCount === 1 ? 0 : Math.round((i * (sourceRowCount - 1)) / (tickCount - 1));
       if (ticks.length > 0 && ticks[ticks.length - 1].row === row) continue;
 
-      const sourceRow = Math.min(row * blockSize, data.length - 1);
-      const cell = data[sourceRow]?.[0];
+      const cell = data[row]?.[0];
       const yValue = cell && Array.isArray(cell[0]) ? cell[0][1] : undefined;
       if (typeof yValue === 'number' && isFinite(yValue)) {
-        ticks.push({ row, value: yValue });
+        const position = sourceRowCount > 1 ? row / (sourceRowCount - 1) : 0;
+        ticks.push({ row, value: yValue, position });
       }
     }
 
-    return ticks.filter(tick => tick.row !== rowCount - 1);
-  }, [data, rowCount, blockSize]);
+    return ticks.filter(tick => tick.row !== sourceRowCount - 1);
+  }, [data]);
 
   const xTicks = useMemo(() => {
-    if (!Array.isArray(data) || data.length === 0 || columnCount <= 0) return [] as Array<{ col: number; value: number }>;
+    const sourceColCount = data[0]?.length ?? 0;
+    if (!Array.isArray(data) || data.length === 0 || sourceColCount <= 0) {
+      return [] as Array<{ col: number; value: number; position: number }>;
+    }
 
     const maxTicks = 7;
-    const tickCount = Math.min(maxTicks, columnCount);
-    const ticks: Array<{ col: number; value: number }> = [];
+    const tickCount = Math.min(maxTicks, sourceColCount);
+    const ticks: Array<{ col: number; value: number; position: number }> = [];
 
     for (let i = 0; i < tickCount; i++) {
-      const col = tickCount === 1 ? 0 : Math.round((i * (columnCount - 1)) / (tickCount - 1));
+      const col = tickCount === 1 ? 0 : Math.round((i * (sourceColCount - 1)) / (tickCount - 1));
       if (ticks.length > 0 && ticks[ticks.length - 1].col === col) continue;
 
-      const sourceCol = Math.min(col * blockSize, (data[0]?.length ?? 0) - 1);
-      const cell = data[data.length - 1]?.[sourceCol] ?? data[0]?.[sourceCol];
+      const cell = data[data.length - 1]?.[col] ?? data[0]?.[col];
       const xValue = cell && Array.isArray(cell[0]) ? cell[0][0] : undefined;
       if (typeof xValue === 'number' && isFinite(xValue)) {
-        ticks.push({ col, value: xValue });
+        const position = sourceColCount > 1 ? col / (sourceColCount - 1) : 0;
+        ticks.push({ col, value: xValue, position });
       }
     }
 
     return ticks.filter(tick => tick.col !== 0);
-  }, [data, columnCount, blockSize]);
+  }, [data]);
 
   const buildMinorTicks = (positions: number[], count: number): number[] => {
     if (positions.length < 2 || count <= 0) return [];
@@ -282,17 +288,17 @@ export const Lightmap: React.FC<LightmapProps> = ({
     return minors;
   };
 
-  const yMinorTickRows = useMemo(() => {
-    const majorRows = yTicks.map(tick => tick.row);
-    if (majorRows.length === 0) return [];
-    const positions = Array.from(new Set([...majorRows, rowCount - 1])).sort((a, b) => a - b);
-    return buildMinorTicks(positions, 5);
-  }, [yTicks, rowCount]);
-  const xMinorTickCols = useMemo(() => {
-    const majorCols = xTicks.map(tick => tick.col);
-    if (majorCols.length === 0) return [];
-    const positions = Array.from(new Set([0, ...majorCols])).sort((a, b) => a - b);
-    return buildMinorTicks(positions, 5);
+  const yMinorTickPositions = useMemo(() => {
+    const majorPositions = yTicks.map(tick => tick.position);
+    if (majorPositions.length === 0) return [];
+    const positions = Array.from(new Set([...majorPositions, 1])).sort((a, b) => a - b);
+    return buildMinorTicks(positions, 4);
+  }, [yTicks]);
+  const xMinorTickPositions = useMemo(() => {
+    const majorPositions = xTicks.map(tick => tick.position);
+    if (majorPositions.length === 0) return [];
+    const positions = Array.from(new Set([0, ...majorPositions])).sort((a, b) => a - b);
+    return buildMinorTicks(positions, 4);
   }, [xTicks]);
 
   const formatAxisValue = (value: number): string => {
@@ -424,6 +430,11 @@ export const Lightmap: React.FC<LightmapProps> = ({
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
+    if (mouseX < 0 || mouseY < 0 || mouseX >= rect.width || mouseY >= rect.height) {
+      setHoveredIndex(null);
+      return;
+    }
+
     const colIndex = Math.floor(mouseX / cellWidth);
     const rowIndex = Math.floor(mouseY / cellHeight);
     const cellIndex = rowIndex * columnCount + colIndex;
@@ -501,17 +512,17 @@ export const Lightmap: React.FC<LightmapProps> = ({
                   <div
                     key={`${tick.row}-${tick.value}`}
                     className="lightmap-y-tick"
-                    style={{ top: `${rowCount > 1 ? (tick.row / (rowCount - 1)) * 100 : 0}%` }}
+                    style={{ top: `${tick.position * 100}%` }}
                   >
                     <span className="lightmap-y-tick-label">{formatAxisValue(tick.value)}</span>
                     <span className="lightmap-y-tick-line" />
                   </div>
                 ))}
-                {yMinorTickRows.map((row, index) => (
+                {yMinorTickPositions.map((position, index) => (
                   <div
-                    key={`y-minor-${row}-${index}`}
+                    key={`y-minor-${position}-${index}`}
                     className="lightmap-y-minor-tick"
-                    style={{ top: `${rowCount > 1 ? (row / (rowCount - 1)) * 100 : 0}%` }}
+                    style={{ top: `${position * 100}%` }}
                   >
                     <span className="lightmap-y-minor-tick-line" />
                   </div>
@@ -524,17 +535,17 @@ export const Lightmap: React.FC<LightmapProps> = ({
                   <div
                     key={`${tick.col}-${tick.value}`}
                     className="lightmap-x-tick"
-                    style={{ left: `${columnCount > 1 ? (tick.col / (columnCount - 1)) * 100 : 0}%` }}
+                    style={{ left: `${tick.position * 100}%` }}
                   >
                     <span className="lightmap-x-tick-label">{formatAxisValue(tick.value)}</span>
                     <span className="lightmap-x-tick-line" />
                   </div>
                 ))}
-                {xMinorTickCols.map((col, index) => (
+                {xMinorTickPositions.map((position, index) => (
                   <div
-                    key={`x-minor-${col}-${index}`}
+                    key={`x-minor-${position}-${index}`}
                     className="lightmap-x-minor-tick"
-                    style={{ left: `${columnCount > 1 ? (col / (columnCount - 1)) * 100 : 0}%` }}
+                    style={{ left: `${position * 100}%` }}
                   >
                     <span className="lightmap-x-minor-tick-line" />
                   </div>

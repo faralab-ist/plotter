@@ -224,6 +224,7 @@ export function AxisReference({
 
   const labelX = formatVector(vecX)
   const labelY = formatVector(vecY)
+  const verticalOffset = 6
 
   return (
     <div
@@ -236,7 +237,7 @@ export function AxisReference({
           position: 'absolute',
           bottom: 0,
           left: 0,
-          transform: `translateY(calc(100% + ${gap}px))`,
+          transform: `translateY(calc(170% + ${gap}px))`,
           display: 'flex',
           alignItems: 'center',
         }}
@@ -258,7 +259,7 @@ export function AxisReference({
           position: 'absolute',
           bottom: 0,
           left: 0,
-          transform: `translateX(calc(-100% - ${gap}px))`,
+          transform: `translateX(calc(-170% - ${gap + verticalOffset}px))`,
         }}
       >
         <AxisArrow
