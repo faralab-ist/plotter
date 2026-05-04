@@ -81,8 +81,19 @@ export function downsample(
   return result;
 }
 
-export function getColorForValue(rawValue: number): string {
+export function getColorForValue(rawValue: number, useModule: boolean = false): string {
   const normalizedValue = Math.max(-1, Math.min(1, rawValue));
+  
+  if (useModule) {
+    // Modo módulo: apenas preto -> vermelho (0 a 1)
+    const absValue = Math.abs(normalizedValue);
+    const hue = 0;
+    const saturation = 100 * absValue;
+    const lightness = 50 * absValue;
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  }
+  
+  // Modo padrão: azul -> preto -> vermelho
   const t = (normalizedValue + 1) / 2;
 
   let hue: number;
@@ -227,52 +238,52 @@ export const Lightmap: React.FC<LightmapProps> = ({
 
   const yTicks = useMemo(() => {
     if (!Array.isArray(data) || data.length === 0) {
-      return [] as Array<{ row: number; value: number; position: number }>;
+      return [] as Array<{ position: number; value: number }>;
     }
 
     const sourceRowCount = data.length;
-    const maxTicks = 7;
-    const tickCount = Math.min(maxTicks, sourceRowCount);
-    const ticks: Array<{ row: number; value: number; position: number }> = [];
+    const ticks: Array<{ position: number; value: number }> = [];
+    
+    // Posições fixas: 0, 0.25, 0.5, 0.75, 1 (alinhadas com as células do grid)
+    const positions = [0, 0.25, 0.5, 0.75, 1];
 
-    for (let i = 0; i < tickCount; i++) {
-      const row = tickCount === 1 ? 0 : Math.round((i * (sourceRowCount - 1)) / (tickCount - 1));
-      if (ticks.length > 0 && ticks[ticks.length - 1].row === row) continue;
-
+    for (const t of positions) {
+      // Para um grid 100x100 (índices 0-99), usar sourceRowCount - 1
+      const row = Math.round(t * (sourceRowCount - 1));
+      
       const cell = data[row]?.[0];
-      const yValue = cell && Array.isArray(cell[0]) ? cell[0][1] : undefined;
+      const yValue = cell && Array.isArray(cell[0]) ? cell[0][0] : undefined;
       if (typeof yValue === 'number' && isFinite(yValue)) {
-        const position = sourceRowCount > 1 ? row / (sourceRowCount - 1) : 0;
-        ticks.push({ row, value: yValue, position });
+        ticks.push({ position: t, value: yValue });
       }
     }
 
-    return ticks.filter(tick => tick.row !== sourceRowCount - 1);
+    return ticks;
   }, [data]);
 
   const xTicks = useMemo(() => {
     const sourceColCount = data[0]?.length ?? 0;
     if (!Array.isArray(data) || data.length === 0 || sourceColCount <= 0) {
-      return [] as Array<{ col: number; value: number; position: number }>;
+      return [] as Array<{ position: number; value: number }>;
     }
 
-    const maxTicks = 7;
-    const tickCount = Math.min(maxTicks, sourceColCount);
-    const ticks: Array<{ col: number; value: number; position: number }> = [];
+    const ticks: Array<{ position: number; value: number }> = [];
+    
+    // Posições fixas: 0, 0.25, 0.5, 0.75, 1 (alinhadas com as células do grid)
+    const positions = [0, 0.25, 0.5, 0.75, 1];
 
-    for (let i = 0; i < tickCount; i++) {
-      const col = tickCount === 1 ? 0 : Math.round((i * (sourceColCount - 1)) / (tickCount - 1));
-      if (ticks.length > 0 && ticks[ticks.length - 1].col === col) continue;
+    for (const t of positions) {
+      // Para um grid 100x100 (índices 0-99), usar sourceColCount - 1
+      const col = Math.round(t * (sourceColCount - 1));
 
       const cell = data[data.length - 1]?.[col] ?? data[0]?.[col];
-      const xValue = cell && Array.isArray(cell[0]) ? cell[0][0] : undefined;
+      const xValue = cell && Array.isArray(cell[0]) ? cell[0][1] : undefined;
       if (typeof xValue === 'number' && isFinite(xValue)) {
-        const position = sourceColCount > 1 ? col / (sourceColCount - 1) : 0;
-        ticks.push({ col, value: xValue, position });
+        ticks.push({ position: t, value: xValue });
       }
     }
 
-    return ticks.filter(tick => tick.col !== 0);
+    return ticks;
   }, [data]);
 
   const buildMinorTicks = (positions: number[], count: number): number[] => {
@@ -289,18 +300,6 @@ export const Lightmap: React.FC<LightmapProps> = ({
     return minors;
   };
 
-  const yMinorTickPositions = useMemo(() => {
-    const majorPositions = yTicks.map(tick => tick.position);
-    if (majorPositions.length === 0) return [];
-    const positions = Array.from(new Set([...majorPositions, 1])).sort((a, b) => a - b);
-    return buildMinorTicks(positions, 4);
-  }, [yTicks]);
-  const xMinorTickPositions = useMemo(() => {
-    const majorPositions = xTicks.map(tick => tick.position);
-    if (majorPositions.length === 0) return [];
-    const positions = Array.from(new Set([0, ...majorPositions])).sort((a, b) => a - b);
-    return buildMinorTicks(positions, 4);
-  }, [xTicks]);
 
   const formatAxisValue = (value: number): string => {
     if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(1)}k`;
@@ -317,6 +316,18 @@ export const Lightmap: React.FC<LightmapProps> = ({
     if (rowCount === 0) return 0;
     return gridHeight / rowCount;
   }, [gridHeight, rowCount]);
+
+  const yMinorTickPositions = useMemo(() => {
+    if (yTicks.length < 2 || rowCount === 0) return [] as number[];
+    const majorPositions = yTicks.map(t => t.position);
+    return buildMinorTicks(majorPositions, 4);
+  }, [yTicks, rowCount]);
+
+  const xMinorTickPositions = useMemo(() => {
+    if (xTicks.length < 2 || columnCount === 0) return [] as number[];
+    const majorPositions = xTicks.map(t => t.position);
+    return buildMinorTicks(majorPositions, 4);
+  }, [xTicks, columnCount]);
 
   const colorRange = useMemo(() => {
     if (lightmapData.length === 0) {
@@ -346,6 +357,14 @@ export const Lightmap: React.FC<LightmapProps> = ({
     return { min, max };
   }, [lightmapData, normalizationMin, normalizationMax]);
 
+  const legendRange = useMemo(() => {
+    if (useModule) {
+      const absMax = Math.max(Math.abs(colorRange.min), Math.abs(colorRange.max));
+      return { min: 0, max: absMax };
+    }
+    return colorRange;
+  }, [colorRange, useModule]);
+
   const normalizeToColorScale = (value: number): number => {
     const { min, max } = colorRange;
     const normalized = ((value - min) / (max - min)) * 2 - 1;
@@ -372,7 +391,6 @@ export const Lightmap: React.FC<LightmapProps> = ({
     const radius = Math.min(gridWidth, gridHeight) / 2;
 
     if (circular) {
-      //omite cells fora do circulo
       ctx.save();
       ctx.beginPath();
       ctx.arc(circleCenterX, circleCenterY, radius, 0, Math.PI * 2);
@@ -401,17 +419,16 @@ export const Lightmap: React.FC<LightmapProps> = ({
           : normalizeToColorScale(activeLegendValue);
         const diff = Math.abs(normalizedValue - normalizedHover);
         fillColor = diff <= effectiveThreshold * 2
-          ? getColorForValue(normalizedValue)
+          ? getColorForValue(normalizedValue, useModule)
           : '#000000';
       } else {
-        fillColor = getColorForValue(normalizedValue);
+        fillColor = getColorForValue(normalizedValue, useModule);
       }
 
       ctx.fillStyle = fillColor;
       ctx.fillRect(x, y, w, h);
     });
 
-    // Highlight da célula hovered — overlay branco semi-transparente (só quando não está em legend hover mode)
     if (hoveredIndex !== null && (legendPinnedValue ?? legendHoveredValue) === null) {
       const col = hoveredIndex % columnCount;
       const row = Math.floor(hoveredIndex / columnCount);
@@ -470,7 +487,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
     if (legendPinnedValue !== null) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const relativeY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    const hoverValue = calculateHoverValue(relativeY, colorRange);
+    const hoverValue = calculateHoverValue(relativeY, legendRange);
     if (legendRafRef.current !== null) {
       cancelAnimationFrame(legendRafRef.current);
     }
@@ -483,7 +500,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
   const handleLegendClick = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
     const relativeY = Math.max(0, Math.min(1, (e.clientY - rect.top) / rect.height));
-    const clickedValue = calculateHoverValue(relativeY, colorRange);
+    const clickedValue = calculateHoverValue(relativeY, legendRange);
     setLegendHoveredValue(clickedValue);
     setLegendPinnedValue(clickedValue);
   };
@@ -525,44 +542,55 @@ export const Lightmap: React.FC<LightmapProps> = ({
             </div>
             {showYTicks && yTicks.length > 0 && (
               <div className="lightmap-y-ticks" aria-hidden="true">
-                {yTicks.map((tick) => (
-                  <div
-                    key={`${tick.row}-${tick.value}`}
-                    className="lightmap-y-tick"
-                    style={{ top: `${tick.position * 100}%` }}
-                  >
-                    <span className="lightmap-y-tick-label">{formatAxisValue(tick.value)}</span>
-                    <span className="lightmap-y-tick-line" />
-                  </div>
-                ))}
-                {yMinorTickPositions.map((position, index) => (
-                  <div
-                    key={`y-minor-${position}-${index}`}
-                    className="lightmap-y-minor-tick"
-                    style={{ top: `${position * 100}%` }}
-                  >
-                    <span className="lightmap-y-minor-tick-line" />
-                  </div>
-                ))}
+                {yTicks.map((tick) => {
+                  // Posição invertida: 0 no topo (valor alto), 1 no fundo (valor baixo)
+                  const topPx = (1 - tick.position) * gridHeight;
+                  return (
+                    <div
+                      key={`${tick.position}-${tick.value}`}
+                      className="lightmap-y-tick"
+                      style={{ top: `${topPx}px` }}
+                    >
+                      <span className="lightmap-y-tick-label">{formatAxisValue(tick.value)}</span>
+                      <span className="lightmap-y-tick-line" />
+                    </div>
+                  );
+                })}
+                {yMinorTickPositions.map((position, index) => {
+                  const topPx = (1 - position) * gridHeight;
+                  return (
+                    <div
+                      key={`y-minor-${position}-${index}`}
+                      className="lightmap-y-minor-tick"
+                      style={{ top: `${topPx}px` }}
+                    >
+                      <span className="lightmap-y-minor-tick-line" />
+                    </div>
+                  );
+                })}
               </div>
             )}
             {showXTicks && xTicks.length > 0 && (
               <div className="lightmap-x-ticks" aria-hidden="true">
-                {xTicks.map((tick) => (
-                  <div
-                    key={`${tick.col}-${tick.value}`}
-                    className="lightmap-x-tick"
-                    style={{ left: `${tick.position * 100}%` }}
-                  >
-                    <span className="lightmap-x-tick-label">{formatAxisValue(tick.value)}</span>
-                    <span className="lightmap-x-tick-line" />
-                  </div>
-                ))}
+                {xTicks.map((tick) => {
+                  // Posição direta: 0 à esquerda, 1 à direita
+                  const leftPx = tick.position * gridWidth;
+                  return (
+                    <div
+                      key={`${tick.position}-${tick.value}`}
+                      className="lightmap-x-tick"
+                      style={{ left: `${leftPx}px` }}
+                    >
+                      <span className="lightmap-x-tick-label">{formatAxisValue(tick.value)}</span>
+                      <span className="lightmap-x-tick-line" />
+                    </div>
+                  );
+                })}
                 {xMinorTickPositions.map((position, index) => (
                   <div
                     key={`x-minor-${position}-${index}`}
                     className="lightmap-x-minor-tick"
-                    style={{ left: `${position * 100}%` }}
+                    style={{ left: `${position * gridWidth}px` }}
                   >
                     <span className="lightmap-x-minor-tick-line" />
                   </div>
@@ -607,7 +635,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
           <div className="legend-gradient">
             <div className="legend-scale">
               {[0, 0.25, 0.5, 0.75, 1].map((t) => {
-                const value = colorRange.max - t * (colorRange.max - colorRange.min);
+                const value = legendRange.max - t * (legendRange.max - legendRange.min);
                 const label = Math.abs(value) >= 1000
                   ? (value / 1000).toFixed(1) + 'k'
                   : Math.abs(value) >= 10
@@ -623,14 +651,36 @@ export const Lightmap: React.FC<LightmapProps> = ({
                   </span>
                 );
               })}
+              {/* Adicionar tick para o valor 0.00 se estiver no range e não for modo módulo */}
+              {!useModule && legendRange.min < 0 && legendRange.max > 0 && (() => {
+                const zeroT = (legendRange.max - 0) / (legendRange.max - legendRange.min);
+                if (zeroT > 0 && zeroT < 1) {
+                  return (
+                    <span
+                      key="zero"
+                      className="legend-scale-tick"
+                      style={{ 
+                        top: `${zeroT * 100}%`,
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      0.00
+                    </span>
+                  );
+                }
+                return null;
+              })()}
             </div>
             <div
               className="legend-color"
               style={{
                 position: 'relative',
-                background: `linear-gradient(to top, ${getColorForValue(-1)}, 
-                ${getColorForValue(-0.5)}, ${getColorForValue(0)}, 
-                ${getColorForValue(0.5)}, ${getColorForValue(1)})`,
+                background: useModule
+                  ? `linear-gradient(to top, ${getColorForValue(0, true)}, 
+                    ${getColorForValue(0.5, true)}, ${getColorForValue(1, true)})`
+                  : `linear-gradient(to top, ${getColorForValue(-1, false)}, 
+                    ${getColorForValue(-0.5, false)}, ${getColorForValue(0, false)}, 
+                    ${getColorForValue(0.5, false)}, ${getColorForValue(1, false)})`,
                 cursor: 'crosshair',
               }}
               onMouseMove={handleLegendMouseMove}
@@ -640,8 +690,8 @@ export const Lightmap: React.FC<LightmapProps> = ({
               {(legendPinnedValue ?? legendHoveredValue) !== null && (
                 <LegendIndicator
                   relativeY={
-                    colorRange.max !== colorRange.min
-                      ? (colorRange.max - (legendPinnedValue ?? legendHoveredValue)!) / (colorRange.max - colorRange.min)
+                    legendRange.max !== legendRange.min
+                      ? (legendRange.max - (legendPinnedValue ?? legendHoveredValue)!) / (legendRange.max - legendRange.min)
                       : 0
                   }
                   value={(legendPinnedValue ?? legendHoveredValue)!}
@@ -649,7 +699,7 @@ export const Lightmap: React.FC<LightmapProps> = ({
               )}
             </div>
             <div className="legend-labels">
-              <span>1</span>
+              <span>{useModule ? 'max' : '1'}</span>
               <span>{useModule ? '0' : '-1'}</span>
             </div>
           </div>

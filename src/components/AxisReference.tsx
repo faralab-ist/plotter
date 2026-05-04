@@ -116,17 +116,22 @@ function AxisArrow({
 
     return (
       <svg
-        className="axis-arrow-svg"
+        className="axis-arrow-svg axis-arrow-svg--horizontal"
         width={len}
         height={h}
         overflow="visible"
         aria-hidden="true"
-        style={{ display: 'block' }}
+        style={{ display: 'block', filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4))' }}
       >
+        <defs>
+          <linearGradient id="axis-gradient-h" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.7" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.95" />
+          </linearGradient>
+        </defs>
         <line
           x1={0} y1={cy} x2={len - arrowSize} y2={cy}
-          stroke={color} strokeWidth={thickness} strokeLinecap="round"
-          opacity={0.9}
+          stroke="url(#axis-gradient-h)" strokeWidth={thickness} strokeLinecap="round"
         />
         <polygon
           points={`${len - arrowSize},${cy - arrowSize / 2} ${len},${cy} ${len - arrowSize},${cy + arrowSize / 2}`}
@@ -134,14 +139,16 @@ function AxisArrow({
           opacity={0.95}
         />
         <text
-          x={len + 8}
+          x={len + 10}
           y={cy}
           fill={color}
           fontSize={labelFontSize}
           dominantBaseline="middle"
           fontFamily="'SF Mono', 'Fira Code', 'Consolas', monospace"
-          opacity={0.85}
-          letterSpacing="0.3"
+          fontWeight="500"
+          opacity={0.9}
+          letterSpacing="0.5"
+          style={{ textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)' }}
         >
           {label}
         </text>
@@ -152,17 +159,22 @@ function AxisArrow({
     const cx = w / 2
     return (
       <svg
-        className="axis-arrow-svg"
+        className="axis-arrow-svg axis-arrow-svg--vertical"
         width={w}
         height={len}
         overflow="visible"
         aria-hidden="true"
-        style={{ display: 'block' }}
+        style={{ display: 'block', filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4))' }}
       >
+        <defs>
+          <linearGradient id="axis-gradient-v" x1="0%" y1="100%" x2="0%" y2="0%">
+            <stop offset="0%" stopColor={color} stopOpacity="0.7" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.95" />
+          </linearGradient>
+        </defs>
         <line
           x1={cx} y1={len} x2={cx} y2={arrowSize}
-          stroke={color} strokeWidth={thickness} strokeLinecap="round"
-          opacity={0.9}
+          stroke="url(#axis-gradient-v)" strokeWidth={thickness} strokeLinecap="round"
         />
         <polygon
           points={`${cx - arrowSize / 2},${arrowSize} ${cx},${0} ${cx + arrowSize / 2},${arrowSize}`}
@@ -177,8 +189,10 @@ function AxisArrow({
           dominantBaseline="middle"
           textAnchor="end"
           fontFamily="'SF Mono', 'Fira Code', 'Consolas', monospace"
-          opacity={0.85}
-          letterSpacing="0.3"
+          fontWeight="500"
+          opacity={0.9}
+          letterSpacing="0.5"
+          style={{ textShadow: '0 1px 3px rgba(0, 0, 0, 0.5)' }}
         >
           {label}
         </text>
@@ -194,10 +208,10 @@ export type { AxisArrowProps, AxisDirection }
 const DEFAULT_STYLE: Required<AxisStyle> = {
   color: '#f5f5f5',
   thickness: 2,
-  arrowSize: 7,
-  labelFontSize: 11,
-  length: 55,
-  gap: 14,
+  arrowSize: 6,
+  labelFontSize: 10,
+  length: 40,
+  gap: 10,
 }
 
 export function AxisReference({
@@ -224,7 +238,6 @@ export function AxisReference({
 
   const labelX = formatVector(vecX)
   const labelY = formatVector(vecY)
-  const verticalOffset = 6
 
   return (
     <div
@@ -237,7 +250,7 @@ export function AxisReference({
           position: 'absolute',
           bottom: 0,
           left: 0,
-          transform: `translateY(calc(170% + ${gap}px))`,
+          transform: `translateY(calc(100% + ${gap}px))`,
           display: 'flex',
           alignItems: 'center',
         }}
@@ -259,7 +272,7 @@ export function AxisReference({
           position: 'absolute',
           bottom: 0,
           left: 0,
-          transform: `translateX(calc(-170% - ${gap + verticalOffset}px))`,
+          transform: `translateX(calc(-100% - ${gap}px))`,
         }}
       >
         <AxisArrow

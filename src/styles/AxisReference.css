@@ -1,12 +1,3 @@
-/* AxisReference.css
- * Estilos de posicionamento e variáveis CSS para o componente AxisReference.
- * Consistente com o estilo do Lightmap.css (fundo #3d3535, setas #f5f5f5).
- */
-
-/* ---------------------------------------------------------------------------
- * CSS Custom Properties (variáveis de estilo)
- * Podem ser sobrescritas pelo consumer via style inline ou classe pai.
- * --------------------------------------------------------------------------- */
 :root {
   --axis-color: #f5f5f5;
   --axis-thickness: 4px;
@@ -16,21 +7,12 @@
   --axis-gap: 20px;
 }
 
-/* ---------------------------------------------------------------------------
- * Container principal do AxisReference
- * Cobre todo o elemento pai (position: absolute; inset: 0).
- * pointer-events: none para não bloquear interações do gráfico subjacente.
- * --------------------------------------------------------------------------- */
 .axis-reference {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-/* ---------------------------------------------------------------------------
- * Wrapper de cada seta (eixo X e eixo Y)
- * Posicionado de forma absoluta dentro do container .axis-reference.
- * --------------------------------------------------------------------------- */
 .axis-arrow {
   position: absolute;
   display: flex;
@@ -39,38 +21,44 @@
   pointer-events: none;
 }
 
-/* ---------------------------------------------------------------------------
- * Seta do eixo X — posicionada na parte inferior-esquerda do container
- * --------------------------------------------------------------------------- */
 .axis-arrow--horizontal {
   bottom: 0;
   left: 0;
 }
 
-/* ---------------------------------------------------------------------------
- * Seta do eixo Y — posicionada na parte superior-esquerda do container
- * --------------------------------------------------------------------------- */
 .axis-arrow--vertical {
   top: 0;
   left: 0;
 }
 
-/* ---------------------------------------------------------------------------
- * SVG das setas — herda dimensões do AxisArrow calculadas em runtime
- * --------------------------------------------------------------------------- */
 .axis-reference svg {
   overflow: visible;
   display: block;
 }
 
-/* ---------------------------------------------------------------------------
- * Labels de texto das setas
- * Fonte consistente com o restante da UI do projeto.
- * --------------------------------------------------------------------------- */
+.axis-arrow-svg--horizontal,
+.axis-arrow-svg--vertical {
+  transition: opacity 0.3s ease;
+}
+
+.axis-arrow-svg--horizontal:hover,
+.axis-arrow-svg--vertical:hover {
+  opacity: 1;
+}
+
 .axis-reference text {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
-    sans-serif;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
   font-size: var(--axis-label-font-size);
   fill: var(--axis-color);
   dominant-baseline: middle;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.axis-reference line {
+  transition: stroke-width 0.2s ease;
+}
+
+.axis-reference polygon {
+  transition: opacity 0.2s ease;
 }
